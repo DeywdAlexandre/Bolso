@@ -236,24 +236,6 @@ export default function SettingsScreen() {
             <Feather name="chevron-right" size={20} color={colors.mutedForeground} />
           </Pressable>
 
-          <Pressable
-            onPress={() => router.push("/settings/google-sync" as any)}
-            style={({ pressed }) => [
-              styles.row,
-              { backgroundColor: colors.card, borderColor: colors.border, opacity: pressed ? 0.7 : 1 },
-            ]}
-          >
-            <View style={[styles.rowIcon, { backgroundColor: colors.primary + "15" }]}>
-              <Feather name="refresh-cw" size={18} color={colors.primary} />
-            </View>
-            <View style={{ flex: 1 }}>
-              <Text style={[styles.rowTitle, { color: colors.foreground }]}>Google Sincronização</Text>
-              <Text style={[styles.rowSub, { color: colors.mutedForeground }]}>
-                Sincronizar com Google Sheets e Google Calendar
-              </Text>
-            </View>
-            <Feather name="chevron-right" size={20} color={colors.mutedForeground} />
-          </Pressable>
 
           <Pressable
             onPress={handleExport}
