@@ -23,6 +23,7 @@ const META: Record<
   { title: string; icon: IoniconsName; iconActive: IoniconsName }
 > = {
   index: { title: "Início", icon: "home-outline", iconActive: "home" },
+  finance: { title: "Finanças", icon: "wallet-outline", iconActive: "wallet" },
   loans: { title: "Empréstimos", icon: "briefcase-outline", iconActive: "briefcase" },
   goals: { title: "Metas", icon: "flag-outline", iconActive: "flag" },
   vehicles: {
@@ -41,9 +42,10 @@ export default function TabLayout() {
   return (
     <Tabs
       screenOptions={{ headerShown: false }}
-      tabBar={(props) => <BolsoTabBar {...props} />}
+      tabBar={(props) => <PrismaTabBar {...props} />}
     >
       <Tabs.Screen name="index" />
+      <Tabs.Screen name="finance" />
       <Tabs.Screen name="vehicles" />
       <Tabs.Screen name="goals" />
       <Tabs.Screen name="loans" />
@@ -67,7 +69,7 @@ type TabBarProps = {
   };
 };
 
-function BolsoTabBar({ state, navigation }: TabBarProps) {
+function PrismaTabBar({ state, navigation }: TabBarProps) {
   const colors = useColors();
   const insets = useSafeAreaInsets();
   const { open, unread } = useChat();
@@ -75,7 +77,7 @@ function BolsoTabBar({ state, navigation }: TabBarProps) {
   const isWeb = Platform.OS === "web";
   const bottomInset = isWeb ? 12 : Math.max(insets.bottom, 10);
 
-  const activeTabs = settings.activeTabs || ["index", "vehicles", "goals", "loans"];
+  const activeTabs = settings.activeTabs || ["index", "finance", "vehicles", "shifts"];
   // Limita a exibição a no máximo 4 abas para manter a simetria com o botão da IA central
   const visibleTabs = activeTabs.slice(0, 4);
   const mid = Math.ceil(visibleTabs.length / 2);

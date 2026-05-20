@@ -13,6 +13,7 @@ import {
 } from "react-native";
 import { Feather, Ionicons } from "@expo/vector-icons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { LinearGradient } from "expo-linear-gradient";
 
 import { useAppData } from "@/contexts/AppDataContext";
 import { useColors } from "@/hooks/useColors";
@@ -160,6 +161,7 @@ export default function ShiftsScreen() {
         date: selectedDateStr,
         startTime: formStartTime,
         endTime: formEndTime,
+        color: formColor,
         isPaid: false,
       });
       Alert.alert("Sucesso", "Plantão avulso adicionado.");
@@ -299,6 +301,7 @@ export default function ShiftsScreen() {
       date: dateStr,
       startTime: template.startTime,
       endTime: template.endTime,
+      color: template.color,
       isPaid: false,
     });
     const d = new Date(dateStr + "T12:00:00.000Z");
@@ -408,39 +411,93 @@ export default function ShiftsScreen() {
 
               // Buscar escalas deste dia
               const dayShifts = shifts.filter(s => s.date === dateStr);
-              const hasOrdinary = dayShifts.some(s => s.type === "ordinary");
-              const hasExtra = dayShifts.some(s => s.type === "extra");
+              const hasShifts = dayShifts.length > 0;
 
-              return (
-                <Pressable
-                  key={dateStr}
-                  onPress={() => setSelectedDate(day)}
-                  style={[
-                    styles.calendarCell,
-                    isSelected && { backgroundColor: colors.primary },
-                    isToday && !isSelected && { borderWidth: 1.5, borderColor: colors.primary },
-                  ]}
-                >
+              // Coletar cores exclusivas (se não houver cor no shift, usar os fallbacks clássicos azul/verde)
+              const uniqueColors = Array.from(
+                new Set(
+                  dayShifts.map(s => s.color || (s.type === "ordinary" ? "#3b82f6" : "#10b981"))
+                )
+              );
+
+              // Renderizar o círculo com preenchimento ou gradiente
+              const renderDayBackground = () => {
+                const borderStyle = isSelected
+                  ? { borderWidth: 2, borderColor: colors.primary }
+                  : {};
+
+                if (hasShifts) {
+                  if (uniqueColors.length === 1) {
+                    return (
+                      <View
+                        style={[
+                          styles.dayCircle,
+                          { backgroundColor: uniqueColors[0] },
+                          borderStyle,
+                          isToday && !isSelected && { borderWidth: 1.5, borderColor: colors.primary },
+                        ]}
+                      >
+                        {renderDayText(true)}
+                      </View>
+                    );
+                  } else {
+                    const c1 = uniqueColors[0];
+                    const c2 = uniqueColors[1];
+                    const hardColors: [string, string, string, string] = [c1, c1, c2, c2];
+                    return (
+                      <LinearGradient
+                        colors={hardColors}
+                        locations={[0, 0.5, 0.5, 1]}
+                        start={{ x: 0, y: 0 }}
+                        end={{ x: 1, y: 0 }}
+                        style={[
+                          styles.dayCircle,
+                          borderStyle,
+                          isToday && !isSelected && { borderWidth: 1.5, borderColor: colors.primary },
+                        ]}
+                      >
+                        {renderDayText(true)}
+                      </LinearGradient>
+                    );
+                  }
+                }
+
+                // Sem escalas
+                return (
+                  <View
+                    style={[
+                      styles.dayCircle,
+                      isSelected && { backgroundColor: colors.primary },
+                      isToday && !isSelected && { borderWidth: 1.5, borderColor: colors.primary },
+                    ]}
+                  >
+                    {renderDayText(isSelected)}
+                  </View>
+                );
+              };
+
+              const renderDayText = (hasBg: boolean) => {
+                return (
                   <Text
                     style={[
                       styles.dayText,
-                      { color: colors.foreground },
-                      isSelected && { color: colors.primaryForeground, fontFamily: "Inter_700Bold" },
+                      { color: hasBg ? "#ffffff" : colors.foreground },
+                      isSelected && { color: hasBg ? "#ffffff" : colors.primaryForeground, fontFamily: "Inter_700Bold" },
                       isToday && !isSelected && { color: colors.primary, fontFamily: "Inter_700Bold" },
                     ]}
                   >
                     {day.getDate()}
                   </Text>
-                  
-                  {/* Indicadores de Escala */}
-                  <View style={styles.indicatorsRow}>
-                    {hasOrdinary && (
-                      <View style={[styles.dot, { backgroundColor: isSelected ? colors.primaryForeground : "#3b82f6" }]} />
-                    )}
-                    {hasExtra && (
-                      <View style={[styles.dot, { backgroundColor: isSelected ? colors.primaryForeground : "#10b981" }]} />
-                    )}
-                  </View>
+                );
+              };
+
+              return (
+                <Pressable
+                  key={dateStr}
+                  onPress={() => setSelectedDate(day)}
+                  style={styles.calendarCell}
+                >
+                  {renderDayBackground()}
                 </Pressable>
               );
             })}
@@ -1112,8 +1169,13 @@ const styles = StyleSheet.create({
     aspectRatio: 1,
     alignItems: "center",
     justifyContent: "center",
-    borderRadius: 12,
-    gap: 2,
+  },
+  dayCircle: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    alignItems: "center",
+    justifyContent: "center",
   },
   dayText: { fontSize: 13, fontFamily: "Inter_500Medium" },
   indicatorsRow: { flexDirection: "row", gap: 3 },

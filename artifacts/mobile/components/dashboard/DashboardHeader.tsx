@@ -26,23 +26,23 @@ export function DashboardHeader({
   const insets = useSafeAreaInsets();
 
   const topPad = Platform.OS === "web" ? 15 : insets.top;
-  const headerMaxHeight = topPad + 220;
-  const headerMinHeight = topPad + 65;
+  const headerMaxHeight = topPad + 160;
+  const headerMinHeight = topPad + 56;
 
   const headerHeight = scrollY.interpolate({
-    inputRange: [0, 120],
+    inputRange: [0, 80],
     outputRange: [headerMaxHeight, headerMinHeight],
     extrapolate: "clamp",
   });
 
   const contentOpacity = scrollY.interpolate({
-    inputRange: [0, 80],
+    inputRange: [0, 50],
     outputRange: [1, 0],
     extrapolate: "clamp",
   });
 
   const minimalHeaderOpacity = scrollY.interpolate({
-    inputRange: [100, 150],
+    inputRange: [60, 90],
     outputRange: [0, 1],
     extrapolate: "clamp",
   });
@@ -69,7 +69,7 @@ export function DashboardHeader({
       >
         <View style={styles.minimalContent}>
           <View>
-            <Text style={[styles.minimalBrand, { color: colors.primaryForeground }]}>Bolso</Text>
+            <Text style={[styles.minimalBrand, { color: colors.primaryForeground }]}>Prisma</Text>
             <Text style={[styles.minimalBalance, { color: colors.primaryForeground + "cc" }]}>
               {formatCurrency(globalBalance)}
             </Text>
@@ -90,7 +90,7 @@ export function DashboardHeader({
               {userName ? "Olá," : "Bem-vindo!"}
             </Text>
             <Text style={[styles.brand, { color: colors.primaryForeground }]}>
-              {userName || "ao Bolso"}
+              {userName || "ao Prisma"}
             </Text>
           </View>
           <Pressable

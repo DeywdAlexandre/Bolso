@@ -25,7 +25,7 @@ const DEFAULT_SETTINGS: Settings = {
   currency: "BRL",
   themeMode: "system",
   biometricsEnabled: false,
-  activeTabs: ["index", "vehicles", "goals", "loans"],
+  activeTabs: ["index", "finance", "vehicles", "shifts"],
   googleCalendarLinked: false,
   googleSheetsLinked: false,
 };

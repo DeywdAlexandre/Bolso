@@ -14,8 +14,8 @@ import { useColors } from "@/hooks/useColors";
 import { useSettings } from "@/contexts/SettingsContext";
 import type { TabName } from "@/lib/types";
 
-const ALL_TABS: { id: TabName; label: string; description: string; icon: string }[] = [
-  { id: "index", label: "Início", description: "Visão geral e resumo das suas finanças", icon: "home-outline" },
+const ALL_TABS: { id: Exclude<TabName, "index">; label: string; description: string; icon: string }[] = [
+  { id: "finance", label: "Finanças", description: "Visão geral e detalhe das suas transações", icon: "wallet-outline" },
   { id: "vehicles", label: "Veículos", description: "Consumo de combustível, óleo e gastos", icon: "car-sport-outline" },
   { id: "goals", label: "Metas", description: "Planejamento e acompanhamento de economias", icon: "flag-outline" },
   { id: "loans", label: "Empréstimos", description: "Gerenciamento de devedores e credores", icon: "briefcase-outline" },
@@ -27,19 +27,19 @@ export default function CustomizeTabsScreen() {
   const { settings, setActiveTabs } = useSettings();
 
   const [activeList, setActiveList] = useState<TabName[]>(
-    settings.activeTabs || ["index", "vehicles", "goals", "loans"]
+    (settings.activeTabs || ["index", "finance", "vehicles", "shifts"]).filter((t) => t !== "index")
   );
 
   const toggleTab = (id: TabName) => {
     if (activeList.includes(id)) {
-      if (activeList.length <= 2) {
-        Alert.alert("Limite Mínimo", "Você precisa manter pelo menos 2 abas ativas na barra inferior.");
+      if (activeList.length <= 1) {
+        Alert.alert("Limite Mínimo", "Você precisa manter pelo menos 1 aba opcional ativa na barra inferior.");
         return;
       }
       setActiveList(activeList.filter((item) => item !== id));
     } else {
-      if (activeList.length >= 4) {
-        Alert.alert("Limite Máximo", "Você pode exibir no máximo 4 abas na barra inferior (2 à esquerda e 2 à direita do Assistente).");
+      if (activeList.length >= 3) {
+        Alert.alert("Limite Máximo", "Você pode exibir no máximo 3 abas opcionais (junto com a aba fixa de Início).");
         return;
       }
       setActiveList([...activeList, id]);
@@ -47,7 +47,7 @@ export default function CustomizeTabsScreen() {
   };
 
   const handleSave = async () => {
-    await setActiveTabs(activeList);
+    await setActiveTabs(["index", ...activeList]);
     router.back();
   };
 
@@ -76,7 +76,7 @@ export default function CustomizeTabsScreen() {
             Escolha as abas do Menu
           </Text>
           <Text style={[styles.subtitle, { color: colors.mutedForeground }]}>
-            Selecione de 2 a 4 abas para exibir na barra inferior. As abas extras ficarão ocultas, mas seus dados continuarão salvos normalmente.
+            A aba 'Início' é fixa e obrigatória. Escolha de 1 a 3 abas adicionais para exibir na barra inferior do menu. As outras ficarão ocultas, mas seus dados continuarão salvos normalmente.
           </Text>
         </View>
 

@@ -300,7 +300,7 @@ export default function SettingsScreen() {
 
         <View style={styles.footer}>
           <Text style={[styles.footerText, { color: colors.mutedForeground }]}>
-            Bolso · seus dados ficam apenas neste dispositivo.
+            Prisma · seus dados ficam apenas neste dispositivo.
           </Text>
         </View>
       </ScrollView>

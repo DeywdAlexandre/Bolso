@@ -114,6 +114,7 @@ export function useShiftsState() {
     const name = rule.name;
     const type = rule.type;
     const value = rule.value;
+    const color = rule.color;
 
     if (rule.recurrenceType === "weekly") {
       const weekDays = rule.weekDays || [];
@@ -130,6 +131,7 @@ export function useShiftsState() {
             date: dateStr,
             startTime,
             endTime,
+            color,
             createdAt: new Date().toISOString(),
             updatedAt: new Date().toISOString(),
           });
@@ -153,6 +155,7 @@ export function useShiftsState() {
           date: dateStr,
           startTime,
           endTime,
+          color,
           createdAt: new Date().toISOString(),
           updatedAt: new Date().toISOString(),
         });

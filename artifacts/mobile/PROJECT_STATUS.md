@@ -1,6 +1,6 @@
-# 📱 Projeto Bolso - Status & Roadmap
+# 📱 Projeto Prisma - Status & Roadmap
 
-O **Bolso** é um assistente financeiro pessoal "Offline-First" com inteligência artificial integrada, focado em simplicidade, privacidade e controle total de gastos, veículos e empréstimos.
+O **Prisma** é um assistente financeiro pessoal "Offline-First" com inteligência artificial integrada, focado em simplicidade, privacidade e controle total de gastos, veículos e empréstimos.
 
 ---
 

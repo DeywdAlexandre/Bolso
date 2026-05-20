@@ -72,7 +72,7 @@ export type GoalDeposit = {
 
 export type ThemeMode = "system" | "light" | "dark";
 
-export type TabName = "index" | "vehicles" | "goals" | "loans" | "shifts";
+export type TabName = "index" | "finance" | "vehicles" | "goals" | "loans" | "shifts";
 
 export type Settings = {
   model: string;
@@ -240,6 +240,7 @@ export type Shift = {
   isPaid?: boolean; // Se o plantão extra já foi recebido
   transactionId?: string; // Transação criada no extrato principal
   googleEventId?: string; // Evento correspondente no Google Calendar
+  color?: string; // Cor customizada do plantão
   createdAt: string;
   updatedAt?: string; // ISO
 };

@@ -1,41 +1,44 @@
-import React from "react";
+import React, { useState } from "react";
 import {
   ActivityIndicator,
-  Animated,
-  Platform,
-  Pressable,
+  ScrollView,
   StyleSheet,
+  Text,
   View,
 } from "react-native";
-import { Feather } from "@expo/vector-icons";
-import { router } from "expo-router";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { useColors } from "@/hooks/useColors";
-import { useDashboard } from "@/hooks/useDashboard";
+import { useSettings } from "@/contexts/SettingsContext";
+import { useAppData } from "@/contexts/AppDataContext";
 
-import { DashboardHeader } from "@/components/dashboard/DashboardHeader";
-import { DashboardSummaryCards } from "@/components/dashboard/DashboardSummaryCards";
-import { UpcomingCommitments } from "@/components/dashboard/UpcomingCommitments";
-import { RecentTransactions } from "@/components/dashboard/RecentTransactions";
+import { HomeHeader } from "@/components/home/HomeHeader";
+import { FinanceWidget } from "@/components/home/FinanceWidget";
+import { GoalsWidget } from "@/components/home/GoalsWidget";
+import { VehiclesWidget } from "@/components/home/VehiclesWidget";
+import { LoansWidget } from "@/components/home/LoansWidget";
+import { ShiftsWidget } from "@/components/home/ShiftsWidget";
 
-export default function DashboardScreen() {
+export default function HomeScreen() {
   const colors = useColors();
-  const insets = useSafeAreaInsets();
-
+  const { settings } = useSettings();
   const {
     ready,
     userName,
+    transactions,
     categories,
-    period,
-    setPeriod,
-    scrollY,
-    totals,
-    savedAmount,
-    upcoming,
-    recent,
-    applyRecurring,
-  } = useDashboard();
+    vehicles,
+    fuelings,
+    oilChanges,
+    vehicleExpenses,
+    loans,
+    loanPayments,
+    loanContacts,
+    goals,
+    shifts,
+    shiftRules,
+  } = useAppData();
+
+  const [showValue, setShowValue] = useState(true);
 
   if (!ready) {
     return (
@@ -45,50 +48,134 @@ export default function DashboardScreen() {
     );
   }
 
+  // 1. Abas ativas nas configurações
+  const activeTabs = settings.activeTabs || ["index", "finance", "vehicles", "shifts"];
+
+  // 2. Cálculos consolidados para o Cabeçalho e Widgets
+  // Saldo geral acumulado das transações
+  const globalBalance = transactions.reduce(
+    (acc, tx) => acc + (tx.type === "income" ? tx.amount : -tx.amount),
+    0
+  );
+
+  // Total acumulado nas metas
+  const goalsTotal = goals.reduce((acc, g) => acc + (g.currentAmount || 0), 0);
+
+  // Patrimônio consolidado
+  const patrimony = globalBalance + goalsTotal;
+
+  // Transações do mês atual
+  const todayStr = new Date().toISOString().split("T")[0]; // YYYY-MM-DD
+  const [currYear, currMonth] = todayStr.split("-").map(Number);
+
+  const monthTransactions = transactions.filter((tx) => {
+    const [y, m] = tx.date.split("-").map(Number);
+    return y === currYear && m === currMonth;
+  });
+
+  const incomeMonth = monthTransactions.reduce(
+    (acc, tx) => acc + (tx.type === "income" ? tx.amount : 0),
+    0
+  );
+  const expenseMonth = monthTransactions.reduce(
+    (acc, tx) => acc + (tx.type === "expense" ? tx.amount : 0),
+    0
+  );
+
+  // Transações recentes (mini-extrato)
+  const sortedTransactions = [...transactions].sort((a, b) => {
+    const cmp = b.date.localeCompare(a.date);
+    if (cmp !== 0) return cmp;
+    return b.id.localeCompare(a.id);
+  });
+  const recentTransactions = sortedTransactions.slice(0, 2);
+
+  // Verificar se há algum widget ativo na tela
+  const hasAnyWidget =
+    activeTabs.includes("finance") ||
+    activeTabs.includes("vehicles") ||
+    activeTabs.includes("goals") ||
+    activeTabs.includes("loans") ||
+    activeTabs.includes("shifts");
+
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
-      <DashboardHeader
-        scrollY={scrollY}
-        userName={userName}
-        globalBalance={totals.globalBalance}
-        period={period}
-        setPeriod={setPeriod}
+      {/* Cabeçalho Fixo */}
+      <HomeHeader
+        showValue={showValue}
+        onToggleShowValue={() => setShowValue(!showValue)}
       />
 
-      <Animated.ScrollView
-        style={{ flex: 1 }}
-        contentContainerStyle={[
-          styles.scrollContent,
-          { paddingTop: Platform.OS === "web" ? insets.top + 230 : insets.top + 240 },
-        ]}
+      {/* Widgets em Scroll */}
+      <ScrollView
+        style={styles.scroll}
+        contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
-        onScroll={Animated.event(
-          [{ nativeEvent: { contentOffset: { y: scrollY } } }],
-          { useNativeDriver: false },
-        )}
-        scrollEventThrottle={16}
       >
-        <DashboardSummaryCards totals={totals} savedAmount={savedAmount} />
+        <View style={styles.widgetsContainer}>
+          {/* Widget Finanças */}
+          {activeTabs.includes("finance") && (
+            <FinanceWidget
+              globalBalance={globalBalance}
+              incomeMonth={incomeMonth}
+              expenseMonth={expenseMonth}
+              recentTransactions={recentTransactions}
+              categories={categories}
+              showValue={showValue}
+            />
+          )}
 
-        <UpcomingCommitments upcoming={upcoming} onApply={applyRecurring} />
+          {/* Widget Metas */}
+          {activeTabs.includes("goals") && (
+            <GoalsWidget
+              goals={goals}
+              goalsTotal={goalsTotal}
+              showValue={showValue}
+            />
+          )}
 
-        <RecentTransactions recent={recent} categories={categories} />
-      </Animated.ScrollView>
+          {/* Widget Veículos */}
+          {activeTabs.includes("vehicles") && (
+            <VehiclesWidget
+              vehicles={vehicles}
+              fuelings={fuelings}
+              oilChanges={oilChanges}
+              vehicleExpenses={vehicleExpenses}
+            />
+          )}
 
-      {/* Botão Flutuante (FAB) */}
-      <Pressable
-        onPress={() => router.push("/transaction/new")}
-        style={({ pressed }) => [
-          styles.fab,
-          {
-            backgroundColor: colors.primary,
-            opacity: pressed ? 0.85 : 1,
-            shadowColor: colors.primary,
-          },
-        ]}
-      >
-        <Feather name="plus" size={24} color={colors.primaryForeground} />
-      </Pressable>
+          {/* Widget Empréstimos */}
+          {activeTabs.includes("loans") && (
+            <LoansWidget
+              loans={loans}
+              loanPayments={loanPayments}
+              loanContacts={loanContacts}
+              showValue={showValue}
+            />
+          )}
+
+          {/* Widget Plantões */}
+          {activeTabs.includes("shifts") && (
+            <ShiftsWidget
+              shifts={shifts}
+              shiftRules={shiftRules}
+              showValue={showValue}
+            />
+          )}
+
+          {/* Estado Vazio (caso todos os widgets extras estejam desativados) */}
+          {!hasAnyWidget && (
+            <View style={[styles.emptyWidget, { backgroundColor: colors.card, borderColor: colors.border }]}>
+              <Text style={[styles.emptyWidgetTitle, { color: colors.foreground }]}>
+                Nenhum widget ativo
+              </Text>
+              <Text style={[styles.emptyWidgetDesc, { color: colors.mutedForeground }]}>
+                Vá em Configurações &gt; Menu Inferior e selecione as abas que deseja exibir no menu e no painel inicial.
+              </Text>
+            </View>
+          )}
+        </View>
+      </ScrollView>
     </View>
   );
 }
@@ -102,24 +189,33 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
+  scroll: {
+    flex: 1,
+  },
   scrollContent: {
-    paddingHorizontal: 20,
     paddingBottom: 100,
+  },
+  widgetsContainer: {
+    paddingHorizontal: 20,
+    marginTop: -12, // Sobrepõe suavemente os widgets no cabeçalho arredondado
     gap: 20,
   },
-  fab: {
-    position: "absolute",
-    bottom: 24,
-    right: 24,
-    width: 56,
-    height: 56,
-    borderRadius: 28,
+  emptyWidget: {
+    padding: 24,
+    borderRadius: 24,
+    borderWidth: 1,
     alignItems: "center",
     justifyContent: "center",
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 6,
-    elevation: 6,
-    zIndex: 30,
+    gap: 8,
+  },
+  emptyWidgetTitle: {
+    fontSize: 16,
+    fontFamily: "Inter_700Bold",
+  },
+  emptyWidgetDesc: {
+    fontSize: 13,
+    fontFamily: "Inter_400Regular",
+    textAlign: "center",
+    lineHeight: 18,
   },
 });

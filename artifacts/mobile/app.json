@@ -1,7 +1,7 @@
 {
   "expo": {
-    "name": "Bolso",
-    "slug": "bolso",
+    "name": "Prisma",
+    "slug": "prisma",
     "owner": "deywd",
     "version": "1.0.0",
     "orientation": "portrait",
@@ -16,14 +16,14 @@
     },
     "ios": {
       "supportsTablet": false,
-      "bundleIdentifier": "com.bolso.app",
+      "bundleIdentifier": "com.prisma.app",
       "infoPlist": {
         "NSSpeechRecognitionUsageDescription": "Permita o reconhecimento de voz para transcrever suas mensagens.",
         "NSMicrophoneUsageDescription": "Permita o microfone para ditar mensagens ao assistente."
       }
     },
     "android": {
-      "package": "com.bolso.app",
+      "package": "com.prisma.app",
       "adaptiveIcon": {
         "foregroundImage": "./assets/images/icon.png",
         "backgroundColor": "#0a0a0c"

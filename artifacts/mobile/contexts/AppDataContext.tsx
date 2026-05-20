@@ -236,7 +236,7 @@ export function AppDataProvider({ children }: { children: React.ReactNode }) {
     const payload = {
       version: DATA_VERSION,
       generated_at: new Date().toISOString(),
-      app: "Bolso",
+      app: "Prisma",
       payload: {
         transactions: txState.transactions,
         recurring: txState.recurring,
@@ -268,7 +268,7 @@ export function AppDataProvider({ children }: { children: React.ReactNode }) {
   const importData = useCallback(async (json: string) => {
     try {
       const data = JSON.parse(json);
-      if (data.app !== "Bolso" || !data.version || !data.payload) {
+      if ((data.app !== "Bolso" && data.app !== "Prisma") || !data.version || !data.payload) {
         throw new Error("Arquivo de backup inválido.");
       }
 

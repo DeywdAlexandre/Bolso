@@ -1,11 +1,11 @@
-# 🧠 Bolso: Contexto e Regras de Ouro
+# 🧠 Prisma: Contexto e Regras de Ouro
 
-Este documento serve como a "memória central" do projeto Bolso. Deve ser lido no início de cada sessão para garantir que o desenvolvimento siga a visão do produto e as regras técnicas já estabelecidas.
+Este documento serve como a "memória central" do projeto Prisma. Deve ser lido no início de cada sessão para garantir que o desenvolvimento siga a visão do produto e as regras técnicas já estabelecidas.
 
 ---
 
 ## 💎 1. Visão do Produto
-O **Bolso** não é apenas um gerenciador financeiro; é uma experiência premium de banco digital. Inspirado na estética do **Mercado Pago**, ele foca em fluidez, cores vibrantes e proatividade.
+O **Prisma** não é apenas um gerenciador financeiro; é uma experiência premium de banco digital. Inspirado na estética do **Mercado Pago**, ele foca em fluidez, cores vibrantes e proatividade.
 
 ### Persona: Finn (IA)
 O assistente Finn deve ser:

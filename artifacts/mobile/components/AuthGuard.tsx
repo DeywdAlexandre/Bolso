@@ -83,7 +83,7 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
         </View>
         <Text style={[styles.title, { color: colors.foreground }]}>App Bloqueado</Text>
         <Text style={[styles.subtitle, { color: colors.mutedForeground }]}>
-          Use sua biometria para acessar o Bolso
+          Use sua biometria para acessar o Prisma
         </Text>
         
         <Pressable
