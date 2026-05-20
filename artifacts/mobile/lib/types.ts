@@ -7,6 +7,7 @@ export type Category = {
   color: string;
   type: TransactionType;
   isDefault?: boolean;
+  updatedAt?: string; // ISO
 };
 
 export type Transaction = {
@@ -18,6 +19,7 @@ export type Transaction = {
   date: string;
   recurringId?: string;
   createdAt: string;
+  updatedAt?: string; // ISO
 };
 
 export type Recurring = {
@@ -31,6 +33,7 @@ export type Recurring = {
   isSubscription?: boolean;
   lastApplied?: string;
   createdAt: string;
+  updatedAt?: string; // ISO
 };
 
 // --- NOVOS TIPOS PARA METAS ---
@@ -50,6 +53,7 @@ export type Goal = {
   color: string;
   lastInterestAccrual?: string; // ISO
   createdAt: string;
+  updatedAt?: string; // ISO
 };
 
 export type GoalDepositType = "deposit" | "yield";
@@ -62,16 +66,27 @@ export type GoalDeposit = {
   date: string;
   transactionId?: string;
   createdAt: string;
+  updatedAt?: string; // ISO
 };
 // ------------------------------
 
 export type ThemeMode = "system" | "light" | "dark";
+
+export type TabName = "index" | "vehicles" | "goals" | "loans" | "shifts";
 
 export type Settings = {
   model: string;
   currency: string;
   themeMode: ThemeMode;
   biometricsEnabled?: boolean;
+  activeTabs?: TabName[];
+  googleCalendarLinked?: boolean;
+  googleSheetsLinked?: boolean;
+  lastSyncAt?: string;
+  googleSheetsId?: string;
+  googleCalendarId?: string;
+  googleClientId?: string;
+  googleClientSecret?: string;
 };
 
 export type ChatRole = "user" | "assistant" | "system" | "tool";
@@ -106,6 +121,7 @@ export type Vehicle = {
   icon?: string;
   initialOdometer?: number;
   createdAt: string;
+  updatedAt?: string; // ISO
 };
 
 export type TankStatus = "full" | "reserve" | "partial";
@@ -122,6 +138,7 @@ export type Fueling = {
   notes?: string;
   expenseTransactionId?: string;
   createdAt: string;
+  updatedAt?: string; // ISO
 };
 
 export type OilChange = {
@@ -134,7 +151,9 @@ export type OilChange = {
   notes?: string;
   expenseTransactionId?: string;
   createdAt: string;
+  updatedAt?: string; // ISO
 };
+
 export type LoanContact = {
   id: string;
   name: string;
@@ -142,6 +161,7 @@ export type LoanContact = {
   address?: string;
   photo?: string;
   createdAt: string;
+  updatedAt?: string; // ISO
 };
 
 export type LoanType = "monthly_interest" | "fixed_installments";
@@ -160,6 +180,7 @@ export type Loan = {
   status: "active" | "completed";
   initialTransactionId?: string; // ID da transação inicial no extrato principal
   createdAt: string;
+  updatedAt?: string; // ISO
 };
 
 export type LoanPayment = {
@@ -172,6 +193,7 @@ export type LoanPayment = {
   isMainExtratEntry: boolean;
   transactionId?: string; // ID da transação vinculada no extrato principal
   createdAt: string;
+  updatedAt?: string; // ISO
 };
 
 export type VehicleExpense = {
@@ -183,4 +205,54 @@ export type VehicleExpense = {
   odometer?: number;
   transactionId?: string;
   createdAt: string;
+  updatedAt?: string; // ISO
 };
+
+// --- NOVOS TIPOS PARA ESCALAS DE SERVIÇO (SHIFTS) ---
+export type ShiftRecurrenceType = "rotative" | "weekly" | "fixed_dates";
+
+export type ShiftRule = {
+  id: string;
+  name: string;
+  type: "ordinary" | "extra";
+  value?: number; // Opcional (valor por plantão, se extra)
+  recurrenceType: ShiftRecurrenceType;
+  workHours?: number; // Horas de trabalho para rotativo (ex: 12)
+  offHours?: number;  // Horas de folga para rotativo (ex: 36)
+  startDate: string;  // Data de início do ciclo (ISO)
+  weekDays?: number[]; // Dias da semana (0-6) para escala fixa semanal
+  startTime: string; // Ex: "07:00"
+  endTime: string;   // Ex: "19:00"
+  color?: string;
+  createdAt: string;
+  updatedAt?: string; // ISO
+};
+
+export type Shift = {
+  id: string;
+  ruleId?: string; // Opcional, se gerado por uma regra
+  name: string;
+  type: "ordinary" | "extra";
+  value?: number; // Remuneração se for extra
+  date: string; // Data do plantão (YYYY-MM-DD)
+  startTime: string; // Ex: "07:00"
+  endTime: string;   // Ex: "19:00"
+  isPaid?: boolean; // Se o plantão extra já foi recebido
+  transactionId?: string; // Transação criada no extrato principal
+  googleEventId?: string; // Evento correspondente no Google Calendar
+  createdAt: string;
+  updatedAt?: string; // ISO
+};
+
+export type ShiftTemplate = {
+  id: string;
+  name: string;
+  type: "ordinary" | "extra";
+  value?: number;
+  startTime: string;
+  endTime: string;
+  color?: string;
+  createdAt: string;
+  updatedAt?: string; // ISO
+};
+// ----------------------------------------------------

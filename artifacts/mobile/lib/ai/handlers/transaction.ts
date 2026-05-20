@@ -1,0 +1,164 @@
+import type { Category, Recurring, Transaction, TransactionType } from "../../types";
+import { genId, todayIso } from "../../format";
+import type {
+  AddTransactionArgs,
+  ListTransactionsArgs,
+  SummaryArgs,
+  AddRecurringArgs,
+  DeleteTransactionArgs,
+} from "../toolTypes";
+
+export function findCategory(categories: Category[], name: string, type: TransactionType): Category | undefined {
+  const norm = name.trim().toLowerCase();
+  return (
+    categories.find((c) => c.type === type && c.name.toLowerCase() === norm) ||
+    categories.find((c) => c.type === type && c.name.toLowerCase().includes(norm)) ||
+    categories.find((c) => c.type === type && c.id.toLowerCase().includes(norm))
+  );
+}
+
+export function buildTransactionHandlers(deps: {
+  transactions: Transaction[];
+  categories: Category[];
+  addTransaction: (t: Transaction) => Promise<void>;
+  removeTransaction: (id: string) => Promise<void>;
+  addRecurring: (r: Recurring) => Promise<void>;
+}) {
+  return {
+    async addTransaction(args: AddTransactionArgs) {
+      if (!args || typeof args.amount !== "number" || args.amount <= 0) {
+        return { ok: false, error: "amount inválido" };
+      }
+      const cat = findCategory(deps.categories, args.category || "", args.type);
+      if (!cat) {
+        const list = deps.categories
+          .filter((c) => c.type === args.type)
+          .map((c) => c.name)
+          .join(", ");
+        return { ok: false, error: `Categoria não encontrada. Categorias de ${args.type === "income" ? "entrada" : "gasto"}: ${list}` };
+      }
+      const date = args.date ? new Date(args.date).toISOString() : todayIso();
+      const tx: Transaction = {
+        id: genId(),
+        type: args.type,
+        amount: args.amount,
+        categoryId: cat.id,
+        description: args.description?.trim() || cat.name,
+        date,
+        createdAt: new Date().toISOString(),
+      };
+      await deps.addTransaction(tx);
+      return { ok: true, transaction: tx };
+    },
+
+    async listTransactions(args: ListTransactionsArgs) {
+      let list = [...deps.transactions];
+      if (args.type && args.type !== "all") list = list.filter((t) => t.type === args.type);
+      if (args.category) {
+        const cat = deps.categories.find((c) => c.name.toLowerCase() === args.category!.toLowerCase());
+        if (cat) list = list.filter((t) => t.categoryId === cat.id);
+      }
+      if (args.month || args.year) {
+        const now = new Date();
+        const month = (args.month ?? now.getMonth() + 1) - 1;
+        const year = args.year ?? now.getFullYear();
+        list = list.filter((t) => {
+          const d = new Date(t.date);
+          return d.getMonth() === month && d.getFullYear() === year;
+        });
+      }
+      list.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+      const limit = args.limit ?? 20;
+      const sliced = list.slice(0, limit);
+      const enriched = sliced.map((t) => ({
+        ...t,
+        categoryName: deps.categories.find((c) => c.id === t.categoryId)?.name ?? "?",
+      }));
+      return { transactions: enriched, total: list.length };
+    },
+
+    async getSummary(args: SummaryArgs) {
+      const now = new Date();
+      const month = (args.month ?? now.getMonth() + 1) - 1;
+      const year = args.year ?? now.getFullYear();
+      const period = args.month ? `${(month + 1).toString().padStart(2, "0")}/${year}` : `${year}`;
+
+      let list = deps.transactions;
+      if (args.month) {
+        list = list.filter((t) => {
+          const d = new Date(t.date);
+          return d.getMonth() === month && d.getFullYear() === year;
+        });
+      } else if (args.year || true) {
+        list = list.filter((t) => new Date(t.date).getFullYear() === year);
+      }
+
+      const income = list.filter((t) => t.type === "income").reduce((s, t) => s + t.amount, 0);
+      const expense = list.filter((t) => t.type === "expense").reduce((s, t) => s + t.amount, 0);
+
+      const byCatMap = new Map<string, number>();
+      for (const t of list) {
+        const cat = deps.categories.find((c) => c.id === t.categoryId);
+        if (!cat) continue;
+        const key = `${cat.type}:${cat.name}`;
+        byCatMap.set(key, (byCatMap.get(key) ?? 0) + t.amount);
+      }
+      const byCategory = Array.from(byCatMap.entries())
+        .map(([k, total]) => {
+          const [type, name] = k.split(":");
+          return { category: name!, type: type as TransactionType, total };
+        })
+        .sort((a, b) => b.total - a.total);
+
+      return { period, income, expense, balance: income - expense, byCategory };
+    },
+
+    async getCategories() {
+      return {
+        income: deps.categories.filter((c) => c.type === "income").map((c) => ({ id: c.id, name: c.name })),
+        expense: deps.categories.filter((c) => c.type === "expense").map((c) => ({ id: c.id, name: c.name })),
+      };
+    },
+
+    async addRecurring(args: AddRecurringArgs) {
+      if (!args || typeof args.amount !== "number" || args.amount <= 0) {
+        return { ok: false, error: "amount inválido" };
+      }
+      if (!args.dayOfMonth || args.dayOfMonth < 1 || args.dayOfMonth > 31) {
+        return { ok: false, error: "dayOfMonth deve ser entre 1 e 31" };
+      }
+      const cat = findCategory(deps.categories, args.category || "", args.type);
+      if (!cat) return { ok: false, error: "Categoria não encontrada" };
+      const r: Recurring = {
+        id: genId(),
+        type: args.type,
+        amount: args.amount,
+        categoryId: cat.id,
+        description: args.description?.trim() || cat.name,
+        dayOfMonth: args.dayOfMonth,
+        active: true,
+        createdAt: new Date().toISOString(),
+      };
+      await deps.addRecurring(r);
+      return { ok: true, recurring: r };
+    },
+
+    async deleteTransaction(args: DeleteTransactionArgs) {
+      if (args.id) {
+        await deps.removeTransaction(args.id);
+        return { ok: true, deleted: 1 };
+      }
+      if (args.description) {
+        const norm = args.description.toLowerCase();
+        const found = deps.transactions.filter((t) => t.description.toLowerCase().includes(norm));
+        if (found.length === 0) return { ok: false, error: "Transação não encontrada" };
+        if (found.length > 1) {
+          return { ok: false, error: `Múltiplas transações encontradas: ${found.map((f) => `${f.description} (R$ ${f.amount})`).join(", ")}. Forneça mais detalhes.` };
+        }
+        await deps.removeTransaction(found[0].id);
+        return { ok: true, deleted: 1 };
+      }
+      return { ok: false, error: "Forneça id ou descrição" };
+    },
+  };
+}

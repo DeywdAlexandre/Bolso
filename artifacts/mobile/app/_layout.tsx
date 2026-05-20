@@ -15,6 +15,7 @@ import React, { useEffect, useState } from "react";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { KeyboardProvider } from "react-native-keyboard-controller";
 import { SafeAreaProvider } from "react-native-safe-area-context";
+import { Platform } from "react-native";
 
 import { AuthGuard } from "@/components/AuthGuard";
 import { ChatSheet } from "@/components/ChatSheet";

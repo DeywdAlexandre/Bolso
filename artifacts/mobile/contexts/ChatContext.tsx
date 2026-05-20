@@ -95,6 +95,7 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
       const handlers = buildToolHandlers({
         transactions: data.transactions,
         categories: data.categories,
+        recurring: data.recurring,
         addTransaction: data.addTransactionRaw,
         addTransactionRaw: data.addTransactionRaw,
         removeTransaction: data.removeTransaction,
@@ -115,6 +116,12 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
         addGoalDeposit: data.addGoalDeposit,
         vehicleExpenses: data.vehicleExpenses,
         addVehicleExpense: data.addVehicleExpense,
+        shifts: data.shifts,
+        shiftRules: data.shiftRules,
+        addShift: data.addShift,
+        updateShift: data.updateShift,
+        addShiftRule: data.addShiftRule,
+        generateShiftsFromRule: data.generateShiftsFromRule,
       });
 
       const systemMsg: ChatMessage = {
@@ -266,6 +273,16 @@ async function runTool(
         return await handlers.addGoalDeposit(args as Parameters<typeof handlers.addGoalDeposit>[0]);
       case "generate_loan_report":
         return await handlers.generateLoanReport(args as Parameters<typeof handlers.generateLoanReport>[0]);
+      case "list_shifts":
+        return await handlers.list_shifts(args as any);
+      case "add_shift_rule":
+        return await handlers.add_shift_rule(args as any);
+      case "add_shift_single":
+        return await handlers.add_shift_single(args as any);
+      case "toggle_shift_paid":
+        return await handlers.toggle_shift_paid(args as any);
+      case "get_morning_briefing":
+        return await handlers.get_morning_briefing();
       default:
         return { ok: false, error: `Ferramenta desconhecida: ${call.function.name}` };
     }

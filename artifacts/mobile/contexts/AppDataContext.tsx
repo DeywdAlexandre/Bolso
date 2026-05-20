@@ -1,9 +1,8 @@
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
 import { Platform } from "react-native";
 
-import { DEFAULT_CATEGORIES } from "@/lib/categories";
-import { genId, todayIso } from "@/lib/format";
 import { saveJson, STORAGE_KEYS, loadJson } from "@/lib/storage";
+import { DEFAULT_CATEGORIES } from "@/lib/categories";
 import { 
   requestNotificationPermissions, 
   scheduleLoanReminder, 
@@ -16,7 +15,6 @@ import type {
   OilChange,
   Recurring,
   Transaction,
-  TransactionType,
   Vehicle,
   VehicleExpense,
   LoanContact,
@@ -24,7 +22,17 @@ import type {
   LoanPayment,
   Goal,
   GoalDeposit,
+  Shift,
+  ShiftRule,
+  ShiftTemplate,
 } from "@/lib/types";
+
+// Importação dos hooks de domínio
+import { useTransactionsState } from "@/hooks/state/useTransactionsState";
+import { useVehiclesState } from "@/hooks/state/useVehiclesState";
+import { useLoansState } from "@/hooks/state/useLoansState";
+import { useGoalsState } from "@/hooks/state/useGoalsState";
+import { useShiftsState } from "@/hooks/state/useShiftsState";
 
 type AppDataContextValue = {
   ready: boolean;
@@ -37,6 +45,15 @@ type AppDataContextValue = {
   fuelings: Fueling[];
   oilChanges: OilChange[];
   vehicleExpenses: VehicleExpense[];
+  loanContacts: LoanContact[];
+  loans: Loan[];
+  loanPayments: LoanPayment[];
+  goals: Goal[];
+  goalDeposits: GoalDeposit[];
+  shifts: Shift[];
+  shiftRules: ShiftRule[];
+  shiftTemplates: ShiftTemplate[];
+  
   addTransaction: (input: Omit<Transaction, "id" | "createdAt">) => Promise<Transaction>;
   addTransactionRaw: (tx: Transaction) => Promise<void>;
   updateTransaction: (id: string, patch: Partial<Transaction>) => Promise<void>;
@@ -59,9 +76,6 @@ type AppDataContextValue = {
   removeOilChange: (id: string) => Promise<void>;
   addVehicleExpense: (input: Omit<VehicleExpense, "id" | "createdAt">) => Promise<VehicleExpense>;
   removeVehicleExpense: (id: string) => Promise<void>;
-  loanContacts: LoanContact[];
-  loans: Loan[];
-  loanPayments: LoanPayment[];
   addLoanContact: (input: Omit<LoanContact, "id" | "createdAt">) => Promise<LoanContact>;
   updateLoanContact: (id: string, patch: Partial<LoanContact>) => Promise<void>;
   removeLoanContact: (id: string) => Promise<void>;
@@ -70,12 +84,26 @@ type AppDataContextValue = {
   removeLoan: (id: string) => Promise<void>;
   addLoanPayment: (input: Omit<LoanPayment, "id" | "createdAt">) => Promise<LoanPayment>;
   removeLoanPayment: (id: string) => Promise<void>;
-  goals: Goal[];
-  goalDeposits: GoalDeposit[];
   addGoal: (input: Omit<Goal, "id" | "createdAt" | "currentAmount">) => Promise<Goal>;
   updateGoal: (id: string, patch: Partial<Goal>) => Promise<void>;
   removeGoal: (id: string) => Promise<void>;
   addGoalDeposit: (input: Omit<GoalDeposit, "id" | "createdAt" | "type"> & { type?: GoalDeposit["type"]; createTransaction?: boolean }) => Promise<GoalDeposit>;
+  
+  // SHIFTS FUNCTIONS
+  addShiftRule: (input: Omit<ShiftRule, "id" | "createdAt">) => Promise<ShiftRule>;
+  updateShiftRule: (id: string, patch: Partial<ShiftRule>) => Promise<void>;
+  removeShiftRule: (id: string) => Promise<void>;
+  addShift: (input: Omit<Shift, "id" | "createdAt">) => Promise<Shift>;
+  addShiftRaw: (shift: Shift) => Promise<void>;
+  updateShift: (id: string, patch: Partial<Shift>) => Promise<void>;
+  removeShift: (id: string) => Promise<void>;
+  generateShiftsFromRule: (ruleId: string, limitMonths?: number) => Promise<void>;
+
+  // SHIFT TEMPLATES FUNCTIONS
+  addShiftTemplate: (input: Omit<ShiftTemplate, "id" | "createdAt" | "updatedAt">) => Promise<ShiftTemplate>;
+  updateShiftTemplate: (id: string, patch: Partial<ShiftTemplate>) => Promise<void>;
+  removeShiftTemplate: (id: string) => Promise<void>;
+
   resetAll: () => Promise<void>;
   exportData: () => Promise<string>;
   importData: (json: string) => Promise<void>;
@@ -86,119 +114,47 @@ const DATA_VERSION = 1;
 const AppDataContext = createContext<AppDataContextValue | null>(null);
 
 export function AppDataProvider({ children }: { children: React.ReactNode }) {
-  const [ready, setReady] = useState(false);
+  const [userNameReady, setUserNameReady] = useState(false);
   const [userName, setUserNameState] = useState("");
-  const [transactions, setTransactions] = useState<Transaction[]>([]);
-  const [recurring, setRecurring] = useState<Recurring[]>([]);
-  const [categories, setCategories] = useState<Category[]>(DEFAULT_CATEGORIES);
-  const [vehicles, setVehicles] = useState<Vehicle[]>([]);
-  const [fuelings, setFuelings] = useState<Fueling[]>([]);
-  const [oilChanges, setOilChanges] = useState<OilChange[]>([]);
-  const [vehicleExpenses, setVehicleExpenses] = useState<VehicleExpense[]>([]);
-  const [loanContacts, setLoanContacts] = useState<LoanContact[]>([]);
-  const [loans, setLoans] = useState<Loan[]>([]);
-  const [loanPayments, setLoanPayments] = useState<LoanPayment[]>([]);
-  const [goals, setGoals] = useState<Goal[]>([]);
-  const [goalDeposits, setGoalDeposits] = useState<GoalDeposit[]>([]);
 
-  // Load
+  // Inicialização dos hooks específicos por domínio
+  const txState = useTransactionsState();
+  const vehState = useVehiclesState({
+    addTransaction: txState.addTransaction,
+    removeTransaction: txState.removeTransaction,
+  });
+  const loanState = useLoansState({
+    removeTransaction: txState.removeTransaction,
+  });
+  const goalState = useGoalsState({
+    addTransaction: txState.addTransaction,
+  });
+  const shiftState = useShiftsState();
+
+  // Carregamento do Nome do Usuário
   useEffect(() => {
-    let cancelled = false;
     (async () => {
-      const results = await Promise.all([
-        loadJson<Transaction[]>(STORAGE_KEYS.transactions, []),
-        loadJson<Recurring[]>(STORAGE_KEYS.recurring, []),
-        loadJson<Category[]>(STORAGE_KEYS.categories, DEFAULT_CATEGORIES),
-        loadJson<Vehicle[]>(STORAGE_KEYS.vehicles, []),
-        loadJson<Fueling[]>(STORAGE_KEYS.fuelings, []),
-        loadJson<OilChange[]>(STORAGE_KEYS.oilChanges, []),
-        loadJson<LoanContact[]>(STORAGE_KEYS.loanContacts, []),
-        loadJson<Loan[]>(STORAGE_KEYS.loans, []),
-        loadJson<LoanPayment[]>(STORAGE_KEYS.loanPayments, []),
-        loadJson<string>(STORAGE_KEYS.userName, ""),
-        loadJson<Goal[]>(STORAGE_KEYS.goals, []),
-        loadJson<GoalDeposit[]>(STORAGE_KEYS.goalDeposits, []),
-        loadJson<VehicleExpense[]>(STORAGE_KEYS.vehicleExpenses, []),
-      ]);
-      if (cancelled) return;
-      const [tx, rc, cats, veh, fue, oil, lc, l, lp, name, g, gd, vex] = results;
-      
-      const mergedCats = [...cats];
-      DEFAULT_CATEGORIES.forEach(def => {
-        if (!mergedCats.find(c => c.id === def.id)) {
-          mergedCats.push(def);
-        }
-      });
-
-      setTransactions(tx);
-      setRecurring(rc);
-      setCategories(mergedCats);
-      setVehicles(veh);
-      setFuelings(fue);
-      setOilChanges(oil);
-      setVehicleExpenses(vex);
-      setLoanContacts(lc);
-      setLoans(l);
-      setLoanPayments(lp);
+      const name = await loadJson<string>(STORAGE_KEYS.userName, "");
       setUserNameState(name);
-      setGoals(g);
-      setGoalDeposits(gd);
-      setReady(true);
+      setUserNameReady(true);
     })();
-    return () => {
-      cancelled = true;
-    };
   }, []);
 
-  // Automatic recurring transactions logic removed as per user request
-  // (Manual application only via applyRecurring)
+  const setUserName = useCallback(async (name: string) => {
+    setUserNameState(name);
+    await saveJson(STORAGE_KEYS.userName, name);
+  }, []);
 
+  // Sinalizador pronto consolidado
+  const ready = 
+    txState.ready && 
+    vehState.ready && 
+    loanState.ready && 
+    goalState.ready && 
+    shiftState.ready && 
+    userNameReady;
 
-  // GOALS AUTOMATIC INTEREST LOGIC
-  useEffect(() => {
-    if (!ready) return;
-    const now = new Date();
-    const today = now.toISOString();
-
-    let changed = false;
-    const newDeposits: GoalDeposit[] = [];
-    const updatedGoals = goals.map((g) => {
-      if (!g.isYielding || g.currentAmount <= 0) return g;
-      
-      const lastAccrual = g.lastInterestAccrual ? new Date(g.lastInterestAccrual) : new Date(g.createdAt);
-      const diffMs = now.getTime() - lastAccrual.getTime();
-      const diffDays = diffMs / (1000 * 60 * 60 * 24);
-
-      if (diffDays >= 30) {
-        const yieldAmount = g.currentAmount * (g.estimatedYield / 100);
-        newDeposits.push({
-          id: "gd_" + genId(),
-          goalId: g.id,
-          amount: yieldAmount,
-          type: "yield",
-          date: today,
-          createdAt: today,
-        });
-        changed = true;
-        return { 
-          ...g, 
-          currentAmount: g.currentAmount + yieldAmount,
-          lastInterestAccrual: today 
-        };
-      }
-      return g;
-    });
-
-    if (changed) {
-      const allGD = [...newDeposits, ...goalDeposits];
-      setGoalDeposits(allGD);
-      setGoals(updatedGoals);
-      void saveJson(STORAGE_KEYS.goalDeposits, allGD);
-      void saveJson(STORAGE_KEYS.goals, updatedGoals);
-    }
-  }, [ready]);
-
-  // NOTIFICATIONS SCHEDULING LOGIC
+  // Lógica central de agendamento de notificações
   useEffect(() => {
     if (!ready || Platform.OS === "web") return;
 
@@ -211,11 +167,12 @@ export function AppDataProvider({ children }: { children: React.ReactNode }) {
       const today = new Date();
       today.setHours(0, 0, 0, 0);
 
-      loans.forEach(async (loan) => {
+      // Agendar notificações de empréstimos ativos
+      loanState.loans.forEach(async (loan) => {
         if (loan.status !== "active") return;
 
-        const contact = loanContacts.find(c => c.id === loan.contactId);
-        const payments = loanPayments.filter(p => p.loanId === loan.id);
+        const contact = loanState.loanContacts.find(c => c.id === loan.contactId);
+        const payments = loanState.loanPayments.filter(p => p.loanId === loan.id);
         
         let nextDueDate: Date | null = null;
         let amountDue = 0;
@@ -251,7 +208,7 @@ export function AppDataProvider({ children }: { children: React.ReactNode }) {
       });
 
       // Agendar Lembretes de Gastos Fixos / Assinaturas
-      recurring.forEach(async (r) => {
+      txState.recurring.forEach(async (r) => {
         if (!r.active) return;
         await scheduleRecurringReminder(
           r.description,
@@ -261,466 +218,19 @@ export function AppDataProvider({ children }: { children: React.ReactNode }) {
         );
       });
     })();
-  }, [ready, loans, loanPayments, loanContacts, recurring]);
-
-  const setUserName = useCallback(async (name: string) => {
-    setUserNameState(name);
-    await saveJson(STORAGE_KEYS.userName, name);
-  }, []);
-
-  const addTransactionRaw = useCallback(async (tx: Transaction) => {
-    setTransactions((prev) => {
-      const next = [tx, ...prev];
-      void saveJson(STORAGE_KEYS.transactions, next);
-      return next;
-    });
-  }, []);
-
-  const addTransaction = useCallback(
-    async (input: Omit<Transaction, "id" | "createdAt">) => {
-      const tx: Transaction = {
-        ...input,
-        id: genId(),
-        createdAt: new Date().toISOString(),
-      };
-      await addTransactionRaw(tx);
-      return tx;
-    },
-    [addTransactionRaw],
-  );
-
-  const updateTransaction = useCallback(async (id: string, patch: Partial<Transaction>) => {
-    setTransactions((prev) => {
-      const next = prev.map((t) => (t.id === id ? { ...t, ...patch } : t));
-      void saveJson(STORAGE_KEYS.transactions, next);
-      return next;
-    });
-  }, []);
-
-  const removeTransaction = useCallback(async (id: string) => {
-    setTransactions((prev) => {
-      const next = prev.filter((t) => t.id !== id);
-      void saveJson(STORAGE_KEYS.transactions, next);
-      return next;
-    });
-  }, []);
-
-  const addRecurringRaw = useCallback(async (r: Recurring) => {
-    setRecurring((prev) => {
-      const next = [r, ...prev];
-      void saveJson(STORAGE_KEYS.recurring, next);
-      return next;
-    });
-  }, []);
-
-  const addRecurring = useCallback(
-    async (input: Omit<Recurring, "id" | "createdAt" | "active"> & { active?: boolean; isSubscription?: boolean }) => {
-      const r: Recurring = {
-        ...input,
-        active: input.active ?? true,
-        isSubscription: input.isSubscription ?? false,
-        id: genId(),
-        createdAt: new Date().toISOString(),
-      };
-      await addRecurringRaw(r);
-      return r;
-    },
-    [addRecurringRaw],
-  );
-
-  const updateRecurring = useCallback(async (id: string, patch: Partial<Recurring>) => {
-    setRecurring((prev) => {
-      const next = prev.map((r) => (r.id === id ? { ...r, ...patch } : r));
-      void saveJson(STORAGE_KEYS.recurring, next);
-      return next;
-    });
-  }, []);
-
-  const removeRecurring = useCallback(async (id: string) => {
-    setRecurring((prev) => {
-      const next = prev.filter((r) => r.id !== id);
-      void saveJson(STORAGE_KEYS.recurring, next);
-      return next;
-    });
-  }, []);
-
-  const applyRecurring = useCallback(async (id: string) => {
-    setRecurring((prevRec) => {
-      const r = prevRec.find((x) => x.id === id);
-      if (!r) return prevRec;
-
-      const now = new Date();
-      const month = now.getMonth();
-      const year = now.getFullYear();
-      const targetDay = Math.min(r.dayOfMonth, new Date(year, month + 1, 0).getDate());
-      const targetDate = new Date(year, month, targetDay, 12, 0, 0);
-
-      // Avoid double apply for same month/year
-      const lastApplied = r.lastApplied ? new Date(r.lastApplied) : null;
-      if (lastApplied && lastApplied.getMonth() === month && lastApplied.getFullYear() === year) {
-        return prevRec;
-      }
-
-      const tx: Transaction = {
-        id: genId(),
-        type: r.type,
-        amount: r.amount,
-        categoryId: r.categoryId,
-        description: r.description,
-        date: targetDate.toISOString(),
-        recurringId: r.id,
-        createdAt: new Date().toISOString(),
-      };
-
-      setTransactions((prevTx) => {
-        const nextTx = [tx, ...prevTx];
-        void saveJson(STORAGE_KEYS.transactions, nextTx);
-        return nextTx;
-      });
-
-      const nextRec = prevRec.map((item) =>
-        item.id === id ? { ...item, lastApplied: targetDate.toISOString() } : item
-      );
-      void saveJson(STORAGE_KEYS.recurring, nextRec);
-      return nextRec;
-    });
-  }, []);
-
-  const addCategory = useCallback(async (input: Omit<Category, "id">) => {
-    const cat: Category = { ...input, id: "cat_" + genId() };
-    setCategories((prev) => {
-      const next = [...prev, cat];
-      void saveJson(STORAGE_KEYS.categories, next);
-      return next;
-    });
-    return cat;
-  }, []);
-
-  const removeCategory = useCallback(async (id: string) => {
-    setCategories((prev) => {
-      const target = prev.find((c) => c.id === id);
-      if (!target || target.isDefault) return prev;
-      const next = prev.filter((c) => c.id !== id);
-      void saveJson(STORAGE_KEYS.categories, next);
-      return next;
-    });
-  }, []);
-
-  const addVehicle = useCallback(async (input: Omit<Vehicle, "id" | "createdAt">) => {
-    const v: Vehicle = { ...input, id: "veh_" + genId(), createdAt: new Date().toISOString() };
-    setVehicles((prev) => {
-      const next = [v, ...prev];
-      void saveJson(STORAGE_KEYS.vehicles, next);
-      return next;
-    });
-    return v;
-  }, []);
-
-  const updateVehicle = useCallback(async (id: string, patch: Partial<Vehicle>) => {
-    setVehicles((prev) => {
-      const next = prev.map((v) => (v.id === id ? { ...v, ...patch } : v));
-      void saveJson(STORAGE_KEYS.vehicles, next);
-      return next;
-    });
-  }, []);
-
-  const removeVehicle = useCallback(async (id: string) => {
-    setVehicles((prev) => {
-      const next = prev.filter((v) => v.id !== id);
-      void saveJson(STORAGE_KEYS.vehicles, next);
-      return next;
-    });
-    setFuelings((prev) => {
-      const next = prev.filter((f) => f.vehicleId !== id);
-      void saveJson(STORAGE_KEYS.fuelings, next);
-      return next;
-    });
-    setOilChanges((prev) => {
-      const next = prev.filter((o) => o.vehicleId !== id);
-      void saveJson(STORAGE_KEYS.oilChanges, next);
-      return next;
-    });
-  }, []);
-
-  const addFueling = useCallback(async (input: Omit<Fueling, "id" | "createdAt">) => {
-    const f: Fueling = { ...input, id: "fue_" + genId(), createdAt: new Date().toISOString() };
-    setFuelings((prev) => {
-      const next = [f, ...prev];
-      void saveJson(STORAGE_KEYS.fuelings, next);
-      return next;
-    });
-    return f;
-  }, []);
-
-  const updateFueling = useCallback(async (id: string, patch: Partial<Fueling>) => {
-    setFuelings((prev) => {
-      const next = prev.map((f) => (f.id === id ? { ...f, ...patch } : f));
-      void saveJson(STORAGE_KEYS.fuelings, next);
-      return next;
-    });
-  }, []);
-
-  const removeFueling = useCallback(async (id: string) => {
-    setFuelings((prev) => {
-      const next = prev.filter((f) => f.id !== id);
-      void saveJson(STORAGE_KEYS.fuelings, next);
-      return next;
-    });
-  }, []);
-
-  const addOilChange = useCallback(async (input: Omit<OilChange, "id" | "createdAt">) => {
-    const o: OilChange = { ...input, id: "oil_" + genId(), createdAt: new Date().toISOString() };
-    setOilChanges((prev) => {
-      const next = [o, ...prev];
-      void saveJson(STORAGE_KEYS.oilChanges, next);
-      return next;
-    });
-    return o;
-  }, []);
-
-  const updateOilChange = useCallback(async (id: string, patch: Partial<OilChange>) => {
-    setOilChanges((prev) => {
-      const next = prev.map((o) => (o.id === id ? { ...o, ...patch } : o));
-      void saveJson(STORAGE_KEYS.oilChanges, next);
-      return next;
-    });
-  }, []);
-
-  const removeOilChange = useCallback(async (id: string) => {
-    setOilChanges((prev) => {
-      const next = prev.filter((o) => o.id !== id);
-      void saveJson(STORAGE_KEYS.oilChanges, next);
-      return next;
-    });
-  }, []);
-
-  const addVehicleExpense = useCallback(async (input: Omit<VehicleExpense, "id" | "createdAt">) => {
-    // Vincular ao extrato principal como despesa
-    const tx = await addTransaction({
-      type: "expense",
-      amount: input.amount,
-      categoryId: "others", // Idealmente uma categoria de manutenção
-      description: `Veículo: ${input.description}`,
-      date: input.date,
-    });
-
-    const ve: VehicleExpense = { 
-      ...input, 
-      id: "vex_" + genId(), 
-      transactionId: tx.id,
-      createdAt: new Date().toISOString() 
-    };
-
-    setVehicleExpenses((prev) => {
-      const next = [ve, ...prev];
-      void saveJson(STORAGE_KEYS.vehicleExpenses, next);
-      return next;
-    });
-    return ve;
-  }, [addTransaction]);
-
-  const removeVehicleExpense = useCallback(async (id: string) => {
-    let txId: string | undefined;
-    setVehicleExpenses((prev) => {
-      const target = prev.find(v => v.id === id);
-      txId = target?.transactionId;
-      const next = prev.filter((v) => v.id !== id);
-      void saveJson(STORAGE_KEYS.vehicleExpenses, next);
-      return next;
-    });
-    if (txId) removeTransaction(txId);
-  }, [removeTransaction]);
-
-  const addLoanContact = useCallback(async (input: Omit<LoanContact, "id" | "createdAt">) => {
-    const lc: LoanContact = { ...input, id: "lc_" + genId(), createdAt: new Date().toISOString() };
-    setLoanContacts((prev) => {
-      const next = [lc, ...prev];
-      void saveJson(STORAGE_KEYS.loanContacts, next);
-      return next;
-    });
-    return lc;
-  }, []);
-
-  const updateLoanContact = useCallback(async (id: string, patch: Partial<LoanContact>) => {
-    setLoanContacts((prev) => {
-      const next = prev.map((c) => (c.id === id ? { ...c, ...patch } : c));
-      void saveJson(STORAGE_KEYS.loanContacts, next);
-      return next;
-    });
-  }, []);
-
-  const removeLoanContact = useCallback(async (id: string) => {
-    setLoanContacts((prev) => {
-      const next = prev.filter((c) => c.id !== id);
-      void saveJson(STORAGE_KEYS.loanContacts, next);
-      return next;
-    });
-    setLoans((prev) => {
-      const next = prev.filter((l) => l.contactId !== id);
-      void saveJson(STORAGE_KEYS.loans, next);
-      return next;
-    });
-  }, []);
-
-  const addLoan = useCallback(async (input: Omit<Loan, "id" | "createdAt" | "status">) => {
-    const l: Loan = { ...input, id: "loan_" + genId(), createdAt: new Date().toISOString(), status: "active" };
-    setLoans((prev) => {
-      const next = [l, ...prev];
-      void saveJson(STORAGE_KEYS.loans, next);
-      return next;
-    });
-    return l;
-  }, []);
-
-  const updateLoan = useCallback(async (id: string, patch: Partial<Loan>) => {
-    setLoans((prev) => {
-      const next = prev.map((l) => (l.id === id ? { ...l, ...patch } : l));
-      void saveJson(STORAGE_KEYS.loans, next);
-      return next;
-    });
-  }, []);
-
-  const removeLoan = useCallback(async (id: string) => {
-    let initialTxId: string | undefined;
-    setLoans((prev) => {
-      const target = prev.find((l) => l.id === id);
-      initialTxId = target?.initialTransactionId;
-      const next = prev.filter((l) => l.id !== id);
-      void saveJson(STORAGE_KEYS.loans, next);
-      return next;
-    });
-    if (initialTxId) removeTransaction(initialTxId);
-    setLoanPayments((prev) => {
-      const next = prev.filter((p) => p.loanId !== id);
-      void saveJson(STORAGE_KEYS.loanPayments, next);
-      return next;
-    });
-  }, [removeTransaction]);
-
-  const addLoanPayment = useCallback(async (input: Omit<LoanPayment, "id" | "createdAt">) => {
-    const lp: LoanPayment = { ...input, id: "lp_" + genId(), createdAt: new Date().toISOString() };
-    setLoanPayments((prev) => {
-      const next = [lp, ...prev];
-      void saveJson(STORAGE_KEYS.loanPayments, next);
-      return next;
-    });
-    return lp;
-  }, []);
-
-  const removeLoanPayment = useCallback(async (id: string) => {
-    let txToRemoveId: string | undefined;
-    setLoanPayments((prev) => {
-      const target = prev.find((p) => p.id === id);
-      txToRemoveId = target?.transactionId;
-      const next = prev.filter((p) => p.id !== id);
-      void saveJson(STORAGE_KEYS.loanPayments, next);
-      return next;
-    });
-    if (txToRemoveId) removeTransaction(txToRemoveId);
-  }, [removeTransaction]);
-
-  // --- GOALS FUNCTIONS ---
-  const addGoal = useCallback(async (input: Omit<Goal, "id" | "createdAt" | "currentAmount">) => {
-    const g: Goal = { 
-      ...input, 
-      id: "goal_" + genId(), 
-      currentAmount: 0, 
-      createdAt: new Date().toISOString() 
-    };
-    setGoals((prev) => {
-      const next = [g, ...prev];
-      void saveJson(STORAGE_KEYS.goals, next);
-      return next;
-    });
-    return g;
-  }, []);
-
-  const updateGoal = useCallback(async (id: string, patch: Partial<Goal>) => {
-    setGoals((prev) => {
-      const next = prev.map((g) => (g.id === id ? { ...g, ...patch } : g));
-      void saveJson(STORAGE_KEYS.goals, next);
-      return next;
-    });
-  }, []);
-
-  const removeGoal = useCallback(async (id: string) => {
-    setGoals((prev) => {
-      const next = prev.filter((g) => g.id !== id);
-      void saveJson(STORAGE_KEYS.goals, next);
-      return next;
-    });
-    setGoalDeposits((prev) => {
-      const next = prev.filter((d) => d.goalId !== id);
-      void saveJson(STORAGE_KEYS.goalDeposits, next);
-      return next;
-    });
-  }, []);
-
-  const addGoalDeposit = useCallback(async (input: Omit<GoalDeposit, "id" | "createdAt" | "type"> & { type?: GoalDeposit["type"]; createTransaction?: boolean }) => {
-    const { createTransaction, type, ...rest } = input;
-    let txId: string | undefined;
-
-    if (createTransaction) {
-      const tx = await addTransaction({
-        type: "expense",
-        amount: rest.amount,
-        categoryId: "savings",
-        description: `Depósito Meta: ${goals.find(g => g.id === rest.goalId)?.name || ""}`,
-        date: rest.date,
-      });
-      txId = tx.id;
-    }
-
-    const gd: GoalDeposit = {
-      ...rest,
-      id: "gd_" + genId(),
-      type: type || "deposit",
-      transactionId: txId,
-      createdAt: new Date().toISOString(),
-    };
-
-    setGoalDeposits((prev) => {
-      const next = [gd, ...prev];
-      void saveJson(STORAGE_KEYS.goalDeposits, next);
-      return next;
-    });
-
-    // Update goal currentAmount
-    updateGoal(rest.goalId, { 
-      currentAmount: (goals.find(g => g.id === rest.goalId)?.currentAmount || 0) + rest.amount 
-    });
-
-    return gd;
-  }, [addTransaction, goals, updateGoal]);
+  }, [ready, loanState.loans, loanState.loanPayments, loanState.loanContacts, txState.recurring]);
 
   const resetAll = useCallback(async () => {
-    setTransactions([]);
-    setRecurring([]);
-    setCategories(DEFAULT_CATEGORIES);
-    setVehicles([]);
-    setFuelings([]);
-    setOilChanges([]);
-    setLoanContacts([]);
-    setLoans([]);
-    setLoanPayments([]);
-    setGoals([]);
-    setGoalDeposits([]);
-    setVehicleExpenses([]);
     await Promise.all([
-      saveJson(STORAGE_KEYS.transactions, []),
-      saveJson(STORAGE_KEYS.recurring, []),
-      saveJson(STORAGE_KEYS.categories, DEFAULT_CATEGORIES),
-      saveJson(STORAGE_KEYS.vehicles, []),
-      saveJson(STORAGE_KEYS.fuelings, []),
-      saveJson(STORAGE_KEYS.oilChanges, []),
-      saveJson(STORAGE_KEYS.vehicleExpenses, []),
-      saveJson(STORAGE_KEYS.loanContacts, []),
-      saveJson(STORAGE_KEYS.loans, []),
-      saveJson(STORAGE_KEYS.loanPayments, []),
-      saveJson(STORAGE_KEYS.goals, []),
-      saveJson(STORAGE_KEYS.goalDeposits, []),
+      txState.clearState(),
+      vehState.clearState(),
+      loanState.clearState(),
+      goalState.clearState(),
+      shiftState.clearState(),
+      saveJson(STORAGE_KEYS.userName, ""),
     ]);
-  }, []);
+    setUserNameState("");
+  }, [txState.clearState, vehState.clearState, loanState.clearState, goalState.clearState, shiftState.clearState]);
 
   const exportData = useCallback(async () => {
     const payload = {
@@ -728,23 +238,32 @@ export function AppDataProvider({ children }: { children: React.ReactNode }) {
       generated_at: new Date().toISOString(),
       app: "Bolso",
       payload: {
-        transactions,
-        recurring,
-        categories,
-        vehicles,
-        fuelings,
-        oilChanges,
-        loanContacts,
-        loans,
-        loanPayments,
-        goals,
-        goalDeposits,
-        vehicleExpenses,
+        transactions: txState.transactions,
+        recurring: txState.recurring,
+        categories: txState.categories,
+        vehicles: vehState.vehicles,
+        fuelings: vehState.fuelings,
+        oilChanges: vehState.oilChanges,
+        loanContacts: loanState.loanContacts,
+        loans: loanState.loans,
+        loanPayments: loanState.loanPayments,
+        goals: goalState.goals,
+        goalDeposits: goalState.goalDeposits,
+        vehicleExpenses: vehState.vehicleExpenses,
         userName,
+        shifts: shiftState.shifts,
+        shiftRules: shiftState.shiftRules,
+        shiftTemplates: shiftState.shiftTemplates,
       }
     };
     return JSON.stringify(payload);
-  }, [transactions, recurring, categories, vehicles, fuelings, oilChanges, loanContacts, loans, loanPayments, goals, goalDeposits, userName]);
+  }, [
+    txState.transactions, txState.recurring, txState.categories,
+    vehState.vehicles, vehState.fuelings, vehState.oilChanges, vehState.vehicleExpenses,
+    loanState.loanContacts, loanState.loans, loanState.loanPayments,
+    goalState.goals, goalState.goalDeposits, userName,
+    shiftState.shifts, shiftState.shiftRules, shiftState.shiftTemplates
+  ]);
 
   const importData = useCallback(async (json: string) => {
     try {
@@ -757,105 +276,123 @@ export function AppDataProvider({ children }: { children: React.ReactNode }) {
         throw new Error(`Backup de uma versão superior (${data.version}). Por favor, atualize o app.`);
       }
 
-      // No futuro, as migrações entrariam aqui:
-      // if (data.version < DATA_VERSION) { data.payload = migrate(data.payload, data.version); }
-
       const p = data.payload;
       
-      // Atualizar estados
-      setTransactions(p.transactions || []);
-      setRecurring(p.recurring || []);
-      setCategories(p.categories || DEFAULT_CATEGORIES);
-      setVehicles(p.vehicles || []);
-      setFuelings(p.fuelings || []);
-      setOilChanges(p.oilChanges || []);
-      setLoanContacts(p.loanContacts || []);
-      setLoans(p.loans || []);
-      setLoanPayments(p.loanPayments || []);
-      setGoals(p.goals || []);
-      setGoalDeposits(p.goalDeposits || []);
-      setVehicleExpenses(p.vehicleExpenses || []);
-      setUserNameState(p.userName || "");
-
-      // Salvar no Storage
       await Promise.all([
-        saveJson(STORAGE_KEYS.transactions, p.transactions || []),
-        saveJson(STORAGE_KEYS.recurring, p.recurring || []),
-        saveJson(STORAGE_KEYS.categories, p.categories || DEFAULT_CATEGORIES),
-        saveJson(STORAGE_KEYS.vehicles, p.vehicles || []),
-        saveJson(STORAGE_KEYS.fuelings, p.fuelings || []),
-        saveJson(STORAGE_KEYS.oilChanges, p.oilChanges || []),
-        saveJson(STORAGE_KEYS.loanContacts, p.loanContacts || []),
-        saveJson(STORAGE_KEYS.loans, p.loans || []),
-        saveJson(STORAGE_KEYS.loanPayments, p.loanPayments || []),
-        saveJson(STORAGE_KEYS.goals, p.goals || []),
-        saveJson(STORAGE_KEYS.goalDeposits, p.goalDeposits || []),
-        saveJson(STORAGE_KEYS.vehicleExpenses, p.vehicleExpenses || []),
+        txState.importState({
+          transactions: p.transactions,
+          recurring: p.recurring,
+          categories: p.categories,
+        }),
+        vehState.importState({
+          vehicles: p.vehicles,
+          fuelings: p.fuelings,
+          oilChanges: p.oilChanges,
+          vehicleExpenses: p.vehicleExpenses,
+        }),
+        loanState.importState({
+          loanContacts: p.loanContacts,
+          loans: p.loans,
+          loanPayments: p.loanPayments,
+        }),
+        goalState.importState({
+          goals: p.goals,
+          goalDeposits: p.goalDeposits,
+        }),
+        shiftState.importState({
+          shifts: p.shifts,
+          shiftRules: p.shiftRules,
+          shiftTemplates: p.shiftTemplates,
+        }),
         saveJson(STORAGE_KEYS.userName, p.userName || ""),
       ]);
-
+      setUserNameState(p.userName || "");
     } catch (err) {
       console.error("Erro ao importar backup:", err);
       throw err;
     }
-  }, []);
+  }, [txState.importState, vehState.importState, loanState.importState, goalState.importState, shiftState.importState]);
 
   const value = useMemo<AppDataContextValue>(
     () => ({
       ready,
       userName,
       setUserName,
-      transactions,
-      recurring,
-      categories,
-      vehicles,
-      fuelings,
-      oilChanges,
-      vehicleExpenses,
-      addTransaction,
-      addTransactionRaw,
-      updateTransaction,
-      removeTransaction,
-      addRecurring,
-      addRecurringRaw,
-      updateRecurring,
-      removeRecurring,
-      applyRecurring,
-      addCategory,
-      removeCategory,
-      addVehicle,
-      updateVehicle,
-      removeVehicle,
-      addFueling,
-      updateFueling,
-      removeFueling,
-      addOilChange,
-      updateOilChange,
-      removeOilChange,
-      addVehicleExpense,
-      removeVehicleExpense,
-      loanContacts,
-      loans,
-      loanPayments,
-      addLoanContact,
-      updateLoanContact,
-      removeLoanContact,
-      addLoan,
-      updateLoan,
-      removeLoan,
-      addLoanPayment,
-      removeLoanPayment,
-      goals,
-      goalDeposits,
-      addGoal,
-      updateGoal,
-      removeGoal,
-      addGoalDeposit,
+      // Transações
+      transactions: txState.transactions,
+      recurring: txState.recurring,
+      categories: txState.categories,
+      addTransaction: txState.addTransaction,
+      addTransactionRaw: txState.addTransactionRaw,
+      updateTransaction: txState.updateTransaction,
+      removeTransaction: txState.removeTransaction,
+      addRecurring: txState.addRecurring,
+      addRecurringRaw: txState.addRecurringRaw,
+      updateRecurring: txState.updateRecurring,
+      removeRecurring: txState.removeRecurring,
+      applyRecurring: txState.applyRecurring,
+      addCategory: txState.addCategory,
+      removeCategory: txState.removeCategory,
+      // Veículos
+      vehicles: vehState.vehicles,
+      fuelings: vehState.fuelings,
+      oilChanges: vehState.oilChanges,
+      vehicleExpenses: vehState.vehicleExpenses,
+      addVehicle: vehState.addVehicle,
+      updateVehicle: vehState.updateVehicle,
+      removeVehicle: vehState.removeVehicle,
+      addFueling: vehState.addFueling,
+      updateFueling: vehState.updateFueling,
+      removeFueling: vehState.removeFueling,
+      addOilChange: vehState.addOilChange,
+      updateOilChange: vehState.updateOilChange,
+      removeOilChange: vehState.removeOilChange,
+      addVehicleExpense: vehState.addVehicleExpense,
+      removeVehicleExpense: vehState.removeVehicleExpense,
+      // Empréstimos
+      loanContacts: loanState.loanContacts,
+      loans: loanState.loans,
+      loanPayments: loanState.loanPayments,
+      addLoanContact: loanState.addLoanContact,
+      updateLoanContact: loanState.updateLoanContact,
+      removeLoanContact: loanState.removeLoanContact,
+      addLoan: loanState.addLoan,
+      updateLoan: loanState.updateLoan,
+      removeLoan: loanState.removeLoan,
+      addLoanPayment: loanState.addLoanPayment,
+      removeLoanPayment: loanState.removeLoanPayment,
+      // Metas
+      goals: goalState.goals,
+      goalDeposits: goalState.goalDeposits,
+      addGoal: goalState.addGoal,
+      updateGoal: goalState.updateGoal,
+      removeGoal: goalState.removeGoal,
+      addGoalDeposit: goalState.addGoalDeposit,
+      // Plantões
+      shifts: shiftState.shifts,
+      shiftRules: shiftState.shiftRules,
+      shiftTemplates: shiftState.shiftTemplates,
+      addShiftRule: shiftState.addShiftRule,
+      updateShiftRule: shiftState.updateShiftRule,
+      removeShiftRule: shiftState.removeShiftRule,
+      addShift: shiftState.addShift,
+      addShiftRaw: shiftState.addShiftRaw,
+      updateShift: shiftState.updateShift,
+      removeShift: shiftState.removeShift,
+      generateShiftsFromRule: shiftState.generateShiftsFromRule,
+      addShiftTemplate: shiftState.addShiftTemplate,
+      updateShiftTemplate: shiftState.updateShiftTemplate,
+      removeShiftTemplate: shiftState.removeShiftTemplate,
+      // Backup & Reset
       resetAll,
       exportData,
       importData,
     }),
-    [ready, userName, transactions, recurring, categories, vehicles, fuelings, oilChanges, vehicleExpenses, addTransaction, addTransactionRaw, updateTransaction, removeTransaction, addRecurring, addRecurringRaw, updateRecurring, removeRecurring, addCategory, removeCategory, addVehicle, updateVehicle, removeVehicle, addFueling, updateFueling, removeFueling, addOilChange, updateOilChange, removeOilChange, addVehicleExpense, removeVehicleExpense, loanContacts, loans, loanPayments, addLoanContact, updateLoanContact, removeLoanContact, addLoan, updateLoan, removeLoan, addLoanPayment, removeLoanPayment, goals, goalDeposits, addGoal, updateGoal, removeGoal, addGoalDeposit, resetAll, exportData, importData]
+    [
+      ready, userName, setUserName,
+      txState, vehState, loanState, goalState, shiftState,
+      resetAll, exportData, importData
+    ]
   );
 
   return <AppDataContext.Provider value={value}>{children}</AppDataContext.Provider>;

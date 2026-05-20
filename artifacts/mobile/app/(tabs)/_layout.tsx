@@ -13,10 +13,10 @@ import * as Haptics from "expo-haptics";
 
 import { useChat } from "@/contexts/ChatContext";
 import { useColors } from "@/hooks/useColors";
+import { useSettings } from "@/contexts/SettingsContext";
+import type { TabName } from "@/lib/types";
 
 type IoniconsName = React.ComponentProps<typeof Ionicons>["name"];
-
-type TabName = "index" | "loans" | "goals" | "vehicles";
 
 const META: Record<
   TabName,
@@ -30,10 +30,12 @@ const META: Record<
     icon: "car-sport-outline",
     iconActive: "car-sport",
   },
+  shifts: {
+    title: "Escalas",
+    icon: "calendar-outline",
+    iconActive: "calendar",
+  },
 };
-
-const LEFT_ORDER: TabName[] = ["index", "vehicles"];
-const RIGHT_ORDER: TabName[] = ["goals", "loans"];
 
 export default function TabLayout() {
   return (
@@ -45,6 +47,7 @@ export default function TabLayout() {
       <Tabs.Screen name="vehicles" />
       <Tabs.Screen name="goals" />
       <Tabs.Screen name="loans" />
+      <Tabs.Screen name="shifts" />
     </Tabs>
   );
 }
@@ -68,8 +71,16 @@ function BolsoTabBar({ state, navigation }: TabBarProps) {
   const colors = useColors();
   const insets = useSafeAreaInsets();
   const { open, unread } = useChat();
+  const { settings } = useSettings();
   const isWeb = Platform.OS === "web";
   const bottomInset = isWeb ? 12 : Math.max(insets.bottom, 10);
+
+  const activeTabs = settings.activeTabs || ["index", "vehicles", "goals", "loans"];
+  // Limita a exibição a no máximo 4 abas para manter a simetria com o botão da IA central
+  const visibleTabs = activeTabs.slice(0, 4);
+  const mid = Math.ceil(visibleTabs.length / 2);
+  const leftTabs = visibleTabs.slice(0, mid);
+  const rightTabs = visibleTabs.slice(mid);
 
   const renderTab = (name: TabName) => {
     const route = state.routes.find((r) => r.name === name);
@@ -143,7 +154,7 @@ function BolsoTabBar({ state, navigation }: TabBarProps) {
         },
       ]}
     >
-      {LEFT_ORDER.map(renderTab)}
+      {leftTabs.map(renderTab)}
 
       <View style={styles.aiSlot}>
         <Pressable
@@ -182,7 +193,7 @@ function BolsoTabBar({ state, navigation }: TabBarProps) {
         </Text>
       </View>
 
-      {RIGHT_ORDER.map(renderTab)}
+      {rightTabs.map(renderTab)}
     </View>
   );
 }

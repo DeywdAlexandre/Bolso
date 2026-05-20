@@ -10,6 +10,8 @@ try {
       shouldShowAlert: true,
       shouldPlaySound: true,
       shouldSetBadge: true,
+      shouldShowBanner: true,
+      shouldShowList: true,
     }),
   });
 } catch (e) {
@@ -51,7 +53,10 @@ export async function scheduleLoanReminder(
         body: `${description} - ${formatCurrency(amount)}`,
         data: { loanId: id },
       },
-      trigger,
+      trigger: {
+        type: Notifications.SchedulableTriggerInputTypes.DATE,
+        date: trigger,
+      },
     });
   } catch (e) {
     console.warn("Failed to schedule loan reminder:", e);
@@ -72,6 +77,7 @@ export async function scheduleRecurringReminder(
         body: `Valor: ${formatCurrency(amount)}. Não esqueça de registrar!`,
       },
       trigger: {
+        type: Notifications.SchedulableTriggerInputTypes.CALENDAR,
         day: dayOfMonth,
         hour: 8,
         minute: 0,
@@ -87,6 +93,7 @@ export async function scheduleRecurringReminder(
         body: `Prepare o saldo de ${formatCurrency(amount)} para amanhã.`,
       },
       trigger: {
+        type: Notifications.SchedulableTriggerInputTypes.CALENDAR,
         day: alertDay,
         hour: 18,
         minute: 0,
