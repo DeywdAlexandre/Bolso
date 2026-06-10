@@ -48,7 +48,7 @@ export function DashboardSummaryCards({ totals, savedAmount }: DashboardSummaryC
       {/* Saldo */}
       <View style={[styles.card, { backgroundColor: colors.card, borderColor: colors.border }]}>
         <View style={styles.cardHeader}>
-          <Text style={[styles.cardLabel, { color: colors.mutedForeground }]}>Balanço</Text>
+          <Text style={[styles.cardLabel, { color: colors.mutedForeground }]}>Balanço do Período</Text>
           <View style={[styles.iconBg, { backgroundColor: colors.foreground + "12" }]}>
             <Feather name="dollar-sign" size={14} color={colors.foreground} />
           </View>

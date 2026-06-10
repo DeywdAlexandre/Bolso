@@ -31,13 +31,15 @@ export function VehicleHistoryList({ entries, onDeleteEntry }: VehicleHistoryLis
         entries.map((entry) => (
           <Pressable
             key={`${entry.kind}-${entry.data.id}`}
-            onPress={() =>
-              router.push(
-                entry.kind === "fueling"
-                  ? `/fueling/${entry.data.id}`
-                  : `/oilchange/${entry.data.id}`,
-              )
-            }
+            onPress={() => {
+              if (entry.kind === "fueling") {
+                router.push(`/fueling/${entry.data.id}`);
+              } else if (entry.kind === "oilchange") {
+                router.push(`/oilchange/${entry.data.id}`);
+              } else if (entry.kind === "vehicleexpense" && entry.data.transactionId) {
+                router.push(`/transaction/${entry.data.transactionId}`);
+              }
+            }}
             onLongPress={() => onDeleteEntry(entry)}
             style={({ pressed }) => [
               styles.entryRow,

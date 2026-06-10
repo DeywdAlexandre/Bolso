@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useEffect, useState } from "react";
 import { Animated, Platform, Pressable, StyleSheet, Text, View } from "react-native";
 import { Feather } from "@expo/vector-icons";
 import { router } from "expo-router";
@@ -6,6 +6,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { PeriodSelector, type Period } from "@/components/PeriodSelector";
 import { useColors } from "@/hooks/useColors";
 import { formatCurrency } from "@/lib/format";
+import { loadJson, saveJson } from "@/lib/storage";
 
 interface DashboardHeaderProps {
   scrollY: Animated.Value;
@@ -24,9 +25,23 @@ export function DashboardHeader({
 }: DashboardHeaderProps) {
   const colors = useColors();
   const insets = useSafeAreaInsets();
+  const [showBalance, setShowBalance] = useState(true);
+
+  useEffect(() => {
+    (async () => {
+      const saved = await loadJson<boolean>("@bolso/settings/show_balance", true);
+      setShowBalance(saved);
+    })();
+  }, []);
+
+  const toggleBalance = async () => {
+    const next = !showBalance;
+    setShowBalance(next);
+    await saveJson("@bolso/settings/show_balance", next);
+  };
 
   const topPad = Platform.OS === "web" ? 15 : insets.top;
-  const headerMaxHeight = topPad + 160;
+  const headerMaxHeight = topPad + 215;
   const headerMinHeight = topPad + 56;
 
   const headerHeight = scrollY.interpolate({
@@ -71,7 +86,7 @@ export function DashboardHeader({
           <View>
             <Text style={[styles.minimalBrand, { color: colors.primaryForeground }]}>Prisma</Text>
             <Text style={[styles.minimalBalance, { color: colors.primaryForeground + "cc" }]}>
-              {formatCurrency(globalBalance)}
+              {showBalance ? formatCurrency(globalBalance) : "••••••"}
             </Text>
           </View>
           <Pressable
@@ -103,6 +118,20 @@ export function DashboardHeader({
           >
             <Feather name="settings" size={18} color={colors.primaryForeground} />
           </Pressable>
+        </View>
+
+        <View style={styles.balanceContainer}>
+          <Text style={[styles.balanceLabel, { color: colors.primaryForeground + "b3" }]}>
+            Saldo Geral (em conta)
+          </Text>
+          <View style={styles.balanceRow}>
+            <Text style={[styles.balanceValue, { color: colors.primaryForeground }]}>
+              {showBalance ? formatCurrency(globalBalance) : "••••••"}
+            </Text>
+            <Pressable onPress={toggleBalance} hitSlop={12} style={styles.eyeBtn}>
+              <Feather name={showBalance ? "eye-off" : "eye"} size={16} color={colors.primaryForeground + "cc"} />
+            </Pressable>
+          </View>
         </View>
 
         <View style={styles.periodContainer}>
@@ -178,6 +207,33 @@ const styles = StyleSheet.create({
     width: 36,
     height: 36,
     borderRadius: 18,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  balanceContainer: {
+    marginBottom: 14,
+    gap: 2,
+  },
+  balanceLabel: {
+    fontSize: 10,
+    fontFamily: "Inter_600SemiBold",
+    textTransform: "uppercase",
+    letterSpacing: 0.8,
+  },
+  balanceRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+  },
+  balanceValue: {
+    fontSize: 26,
+    fontFamily: "Inter_700Bold",
+    letterSpacing: -0.5,
+  },
+  eyeBtn: {
+    padding: 6,
+    borderRadius: 8,
+    backgroundColor: "rgba(255, 255, 255, 0.12)",
     alignItems: "center",
     justifyContent: "center",
   },

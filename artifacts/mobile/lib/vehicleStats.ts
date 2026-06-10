@@ -64,43 +64,40 @@ export function computeVehicleStats(
   const totalSpentAllTime = totalSpentFuel + totalSpentOil + totalExtraExpenses;
   const totalLitersAllTime = fuelings.reduce((s, f) => s + f.liters, 0);
 
-  // segments between consecutive fuelings with the same tank status (anchors)
+  // Segmentos disjuntos calculados
   let totalKm = 0;
   let totalLitersInSegments = 0;
   let totalCostInSegments = 0;
   const segments: { km: number; liters: number; cost: number }[] = [];
 
-  let anchorIndex = -1;
+  // Filtrar índices de âncoras por tipo
+  const fullIndices: number[] = [];
+  const reserveIndices: number[] = [];
+
   for (let i = 0; i < fuelings.length; i++) {
-    const f = fuelings[i];
-    if (f.tankStatus === "partial") continue;
-
-    if (anchorIndex === -1) {
-      anchorIndex = i;
-      continue;
+    if (fuelings[i]!.tankStatus === "full") {
+      fullIndices.push(i);
+    } else if (fuelings[i]!.tankStatus === "reserve") {
+      reserveIndices.push(i);
     }
+  }
 
-    const start = fuelings[anchorIndex]!;
-    const end = f;
-
-    if (start.tankStatus === end.tankStatus) {
+  if (fullIndices.length >= 2) {
+    // Calcular segmentos baseados em Tanque Cheio (Full-to-Full)
+    for (let i = 0; i < fullIndices.length - 1; i++) {
+      const startIdx = fullIndices[i]!;
+      const endIdx = fullIndices[i + 1]!;
+      const start = fuelings[startIdx]!;
+      const end = fuelings[endIdx]!;
       const km = end.odometer - start.odometer;
+
       if (km > 0) {
         let liters = 0;
         let cost = 0;
-
-        if (end.tankStatus === "full") {
-          // Full-to-Full: sum all liters from the one AFTER the start until the end
-          for (let j = anchorIndex + 1; j <= i; j++) {
-            liters += fuelings[j]!.liters;
-            cost += fuelings[j]!.totalCost;
-          }
-        } else {
-          // Reserve-to-Reserve: sum all liters from the start until the one BEFORE the end
-          for (let j = anchorIndex; j < i; j++) {
-            liters += fuelings[j]!.liters;
-            cost += fuelings[j]!.totalCost;
-          }
+        // Soma todos os litros a partir do próximo após a âncora inicial até o fim
+        for (let j = startIdx + 1; j <= endIdx; j++) {
+          liters += fuelings[j]!.liters;
+          cost += fuelings[j]!.totalCost;
         }
 
         if (liters > 0) {
@@ -110,11 +107,32 @@ export function computeVehicleStats(
           segments.push({ km, liters, cost });
         }
       }
-      anchorIndex = i;
-    } else {
-      // Mixed anchor types (Full -> Reserve or vice versa)
-      // Reset anchor to the latest known state
-      anchorIndex = i;
+    }
+  } else if (reserveIndices.length >= 2) {
+    // Fallback: Calcular segmentos baseados em Reserva (Reserve-to-Reserve)
+    for (let i = 0; i < reserveIndices.length - 1; i++) {
+      const startIdx = reserveIndices[i]!;
+      const endIdx = reserveIndices[i + 1]!;
+      const start = fuelings[startIdx]!;
+      const end = fuelings[endIdx]!;
+      const km = end.odometer - start.odometer;
+
+      if (km > 0) {
+        let liters = 0;
+        let cost = 0;
+        // Soma todos os litros a partir da âncora inicial até o anterior ao fim
+        for (let j = startIdx; j < endIdx; j++) {
+          liters += fuelings[j]!.liters;
+          cost += fuelings[j]!.totalCost;
+        }
+
+        if (liters > 0) {
+          totalKm += km;
+          totalLitersInSegments += liters;
+          totalCostInSegments += cost;
+          segments.push({ km, liters, cost });
+        }
+      }
     }
   }
 

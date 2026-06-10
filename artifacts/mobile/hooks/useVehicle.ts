@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { Alert } from "react-native";
+import { Alert, Platform } from "react-native";
 import { router } from "expo-router";
 import { useAppData } from "@/contexts/AppDataContext";
 import { computeVehicleStats } from "@/lib/vehicleStats";
@@ -56,54 +56,74 @@ export function useVehicle(id: string) {
 
   const handleDeleteVehicle = () => {
     if (!vehicle) return;
-    Alert.alert(
-      "Excluir veículo",
-      "Isso vai apagar o veículo e todo o histórico de abastecimentos e trocas. Tem certeza?",
-      [
-        { text: "Cancelar", style: "cancel" },
-        {
-          text: "Excluir",
-          style: "destructive",
-          onPress: async () => {
-            await removeVehicle(vehicle.id);
-            router.back();
+
+    const performDelete = async () => {
+      await removeVehicle(vehicle.id);
+      router.back();
+    };
+
+    if (Platform.OS === "web") {
+      const confirm = window.confirm("Excluir veículo\nIsso vai apagar o veículo e todo o histórico de abastecimentos e trocas. Tem certeza?");
+      if (confirm) {
+        performDelete();
+      }
+    } else {
+      Alert.alert(
+        "Excluir veículo",
+        "Isso vai apagar o veículo e todo o histórico de abastecimentos e trocas. Tem certeza?",
+        [
+          { text: "Cancelar", style: "cancel" },
+          {
+            text: "Excluir",
+            style: "destructive",
+            onPress: performDelete,
           },
-        },
-      ],
-    );
+        ],
+      );
+    }
   };
 
   const handleDeleteEntry = (entry: Entry) => {
     const isFuel = entry.kind === "fueling";
     const isOil = entry.kind === "oilchange";
     const title = isFuel ? "Excluir abastecimento" : isOil ? "Excluir troca de óleo" : "Excluir gasto extra";
-    Alert.alert(
-      title,
-      "Tem certeza? Se houver gasto vinculado no extrato, ele também será excluído.",
-      [
-        { text: "Cancelar", style: "cancel" },
-        {
-          text: "Excluir",
-          style: "destructive",
-          onPress: async () => {
-            let linkedId: string | undefined;
-            if (entry.kind === "fueling") {
-              linkedId = entry.data.expenseTransactionId;
-            } else if (entry.kind === "oilchange") {
-              linkedId = entry.data.expenseTransactionId;
-            } else if (entry.kind === "vehicleexpense") {
-              linkedId = entry.data.transactionId;
-            }
-            if (linkedId && transactions.some((t) => t.id === linkedId)) {
-              await removeTransaction(linkedId);
-            }
-            if (isFuel) await removeFueling(entry.data.id);
-            else if (isOil) await removeOilChange(entry.data.id);
-            else await removeVehicleExpense(entry.data.id);
+
+    const performDelete = async () => {
+      let linkedId: string | undefined;
+      if (entry.kind === "fueling") {
+        linkedId = entry.data.expenseTransactionId;
+      } else if (entry.kind === "oilchange") {
+        linkedId = entry.data.expenseTransactionId;
+      } else if (entry.kind === "vehicleexpense") {
+        linkedId = entry.data.transactionId;
+      }
+      if (linkedId && transactions.some((t) => t.id === linkedId)) {
+        await removeTransaction(linkedId);
+      }
+      if (isFuel) await removeFueling(entry.data.id);
+      else if (isOil) await removeOilChange(entry.data.id);
+      else await removeVehicleExpense(entry.data.id);
+    };
+
+    if (Platform.OS === "web") {
+      const confirm = window.confirm(`${title}\nTem certeza? Se houver gasto vinculado no extrato, ele também será excluído.`);
+      if (confirm) {
+        performDelete();
+      }
+    } else {
+      Alert.alert(
+        title,
+        "Tem certeza? Se houver gasto vinculado no extrato, ele também será excluído.",
+        [
+          { text: "Cancelar", style: "cancel" },
+          {
+            text: "Excluir",
+            style: "destructive",
+            onPress: performDelete,
           },
-        },
-      ],
-    );
+        ],
+      );
+    }
   };
 
   return {

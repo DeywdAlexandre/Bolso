@@ -59,7 +59,7 @@ export default function FinanceScreen() {
         style={{ flex: 1 }}
         contentContainerStyle={[
           styles.scrollContent,
-          { paddingTop: Platform.OS === "web" ? insets.top + 170 : insets.top + 180 },
+          { paddingTop: Platform.OS === "web" ? insets.top + 225 : insets.top + 235 },
         ]}
         showsVerticalScrollIndicator={false}
         onScroll={Animated.event(

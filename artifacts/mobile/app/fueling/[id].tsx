@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import {
   Alert,
+  Platform,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -227,27 +228,37 @@ export default function FuelingFormScreen() {
 
   const handleDelete = () => {
     if (!editing) return;
-    Alert.alert(
-      "Excluir abastecimento",
-      "Tem certeza? O gasto vinculado também será excluído.",
-      [
-        { text: "Cancelar", style: "cancel" },
-        {
-          text: "Excluir",
-          style: "destructive",
-          onPress: async () => {
-            if (
-              editing.expenseTransactionId &&
-              transactions.some((t) => t.id === editing.expenseTransactionId)
-            ) {
-              await removeTransaction(editing.expenseTransactionId);
-            }
-            await removeFueling(editing.id);
-            router.back();
+
+    const performDelete = async () => {
+      if (
+        editing.expenseTransactionId &&
+        transactions.some((t) => t.id === editing.expenseTransactionId)
+      ) {
+        await removeTransaction(editing.expenseTransactionId);
+      }
+      await removeFueling(editing.id);
+      router.back();
+    };
+
+    if (Platform.OS === "web") {
+      const confirm = window.confirm("Excluir abastecimento\nTem certeza? O gasto vinculado também será excluído.");
+      if (confirm) {
+        performDelete();
+      }
+    } else {
+      Alert.alert(
+        "Excluir abastecimento",
+        "Tem certeza? O gasto vinculado também será excluído.",
+        [
+          { text: "Cancelar", style: "cancel" },
+          {
+            text: "Excluir",
+            style: "destructive",
+            onPress: performDelete,
           },
-        },
-      ],
-    );
+        ],
+      );
+    }
   };
 
   return (
