@@ -18,6 +18,15 @@ export const AI_TOOLS: ToolDefinition[] = [
           },
           description: { type: "string", description: "Breve descrição opcional (ex: 'almoço no restaurante')" },
           date: { type: "string", description: "Data ISO opcional (YYYY-MM-DD). Padrão é hoje." },
+          account: {
+            type: "string",
+            description: "Nome da conta/banco/carteira de onde saiu ou entrou o dinheiro (veja list_accounts). Sem ela, usa a conta padrão.",
+          },
+          paymentMethod: {
+            type: "string",
+            enum: ["pix", "debit", "cash", "boleto", "transfer", "other"],
+            description: "Forma de pagamento: pix, debit (débito), cash (dinheiro), boleto, transfer (TED/transferência) ou other.",
+          },
         },
         required: ["type", "amount", "category"],
       },
@@ -35,6 +44,7 @@ export const AI_TOOLS: ToolDefinition[] = [
           category: { type: "string", description: "Filtrar por nome da categoria" },
           month: { type: "number", description: "Mês 1-12 (opcional)" },
           year: { type: "number", description: "Ano 4 dígitos (opcional)" },
+          account: { type: "string", description: "Filtrar por nome da conta/banco" },
           limit: { type: "number", description: "Máximo de resultados (padrão 20)" },
         },
       },
@@ -75,9 +85,20 @@ export const AI_TOOLS: ToolDefinition[] = [
           category: { type: "string", description: "Nome da categoria" },
           description: { type: "string", description: "Descrição (ex: 'Netflix', 'Aluguel')" },
           dayOfMonth: { type: "number", description: "Dia do mês (1-31)" },
+          account: { type: "string", description: "Nome da conta/banco (veja list_accounts). Sem ela, usa a conta padrão." },
+          paymentMethod: { type: "string", enum: ["pix", "debit", "cash", "boleto", "transfer", "other"] },
         },
         required: ["type", "amount", "category", "dayOfMonth"],
       },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "list_accounts",
+      description:
+        "Lista as contas do usuário (bancos, carteira, poupança) com o saldo atual de cada uma, o valor 'Sem conta' e o total. Use para perguntas como 'quanto tenho no Nubank?' ou 'quanto tenho no total?'.",
+      parameters: { type: "object", properties: {} },
     },
   },
   {

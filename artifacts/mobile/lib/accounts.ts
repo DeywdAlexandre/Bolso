@@ -87,3 +87,42 @@ export function preselectedAccountId(
   if (defaultAccountId && active.has(defaultAccountId)) return defaultAccountId;
   return undefined;
 }
+
+const normalize = (s: string) =>
+  s.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().trim();
+
+/** Procura uma conta ativa pelo nome (sem acento/caixa): exato, depois começa com, depois contém. */
+export function findAccount(accounts: Account[], query: string | undefined): Account | undefined {
+  const q = normalize(query ?? "");
+  if (!q) return undefined;
+  const active = accounts.filter((a) => !a.archived);
+  return (
+    active.find((a) => normalize(a.name) === q) ??
+    active.find((a) => normalize(a.name).startsWith(q)) ??
+    active.find((a) => normalize(a.name).includes(q)) ??
+    active.find((a) => q.includes(normalize(a.name)))
+  );
+}
+
+const METHOD_ALIASES: Record<string, PaymentMethod> = {
+  pix: "pix",
+  debito: "debit",
+  "cartao de debito": "debit",
+  debit: "debit",
+  dinheiro: "cash",
+  especie: "cash",
+  cash: "cash",
+  boleto: "boleto",
+  ted: "transfer",
+  doc: "transfer",
+  transferencia: "transfer",
+  transfer: "transfer",
+  outro: "other",
+  other: "other",
+};
+
+/** Aceita o valor interno ("pix") ou o nome em português ("Débito", "dinheiro"). */
+export function parsePaymentMethod(input: string | undefined): PaymentMethod | undefined {
+  if (!input) return undefined;
+  return METHOD_ALIASES[normalize(input)];
+}

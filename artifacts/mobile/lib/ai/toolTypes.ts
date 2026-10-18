@@ -6,11 +6,15 @@ export type AddTransactionArgs = {
   category: string;
   description?: string;
   date?: string;
+  /** Nome da conta (ex.: "Nubank"). Sem ela, usa a conta padrão. */
+  account?: string;
+  paymentMethod?: string;
 };
 
 export type ListTransactionsArgs = {
   type?: TransactionType | "all";
   category?: string;
+  account?: string;
   month?: number;
   year?: number;
   limit?: number;
@@ -27,6 +31,8 @@ export type AddRecurringArgs = {
   category: string;
   description?: string;
   dayOfMonth: number;
+  account?: string;
+  paymentMethod?: string;
 };
 
 export type DeleteTransactionArgs = {

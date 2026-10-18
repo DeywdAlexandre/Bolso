@@ -26,8 +26,11 @@ const MAX_TOOL_ROUNDS = 4;
 
 type AppData = ReturnType<typeof useAppData>;
 
-function toToolDeps(data: AppData): ToolDeps {
+function toToolDeps(data: AppData, defaultAccountId?: string): ToolDeps {
   return {
+    accounts: data.accounts,
+    balances: data.balances,
+    defaultAccountId,
     transactions: data.transactions,
     categories: data.categories,
     recurring: data.recurring,
@@ -75,6 +78,8 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
   // o que a rodada anterior acabou de gravar.
   const dataRef = useRef(data);
   dataRef.current = data;
+  const settingsRef = useRef(settings);
+  settingsRef.current = settings;
 
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [sending, setSending] = useState(false);
@@ -182,7 +187,7 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
           setMessages((prev) => [...prev, assistantToolMsg]);
           conversation = [...conversation, assistantToolMsg];
 
-          const handlers = buildToolHandlers(toToolDeps(dataRef.current));
+          const handlers = buildToolHandlers(toToolDeps(dataRef.current, settingsRef.current.defaultAccountId));
           const toolResults: ChatMessage[] = [];
           for (const call of toolCalls) {
             const out = await runTool(call, handlers);
@@ -254,6 +259,8 @@ async function runTool(
     switch (call.function.name) {
       case "add_transaction":
         return await handlers.addTransaction(args as Parameters<typeof handlers.addTransaction>[0]);
+      case "list_accounts":
+        return await handlers.listAccounts();
       case "list_transactions":
         return await handlers.listTransactions(args as Parameters<typeof handlers.listTransactions>[0]);
       case "get_summary":

@@ -1,4 +1,5 @@
-import type { Category, Recurring, Transaction, TransactionType } from "../../types";
+import { findAccount, parsePaymentMethod, type BalanceSummary } from "../../accounts";
+import type { Account, Category, PaymentMethod, Recurring, Transaction, TransactionType } from "../../types";
 import { genId, todayIso } from "../../format";
 import type {
   AddTransactionArgs,
@@ -23,7 +24,40 @@ export function buildTransactionHandlers(deps: {
   addTransaction: (t: Transaction) => Promise<void>;
   removeTransaction: (id: string) => Promise<void>;
   addRecurring: (r: Recurring) => Promise<void>;
+  accounts: Account[];
+  balances: BalanceSummary;
+  /** Conta usada quando o usuário não diz qual (só se ainda estiver ativa). */
+  defaultAccountId?: string;
 }) {
+  const activeAccounts = () => deps.accounts.filter((a) => !a.archived);
+
+  /** Conta pedida pelo nome; sem nome, a padrão. Erro se o nome não existir ou a forma for inválida. */
+  function resolveAccountAndMethod(
+    accountName: string | undefined,
+    method: string | undefined,
+  ): { accountId?: string; paymentMethod?: PaymentMethod; error?: string } {
+    let accountId: string | undefined;
+    if (accountName?.trim()) {
+      const found = findAccount(deps.accounts, accountName);
+      if (!found) {
+        const names = activeAccounts().map((a) => a.name).join(", ") || "nenhuma conta cadastrada";
+        return { error: `Conta "${accountName}" não encontrada. Contas disponíveis: ${names}.` };
+      }
+      accountId = found.id;
+    } else if (deps.defaultAccountId && activeAccounts().some((a) => a.id === deps.defaultAccountId)) {
+      accountId = deps.defaultAccountId;
+    }
+
+    let paymentMethod: PaymentMethod | undefined;
+    if (method?.trim()) {
+      paymentMethod = parsePaymentMethod(method);
+      if (!paymentMethod) return { error: `Forma de pagamento "${method}" inválida. Use: pix, debit, cash, boleto, transfer ou other.` };
+    }
+    return { accountId, paymentMethod };
+  }
+
+  const accountName = (id: string | undefined) => (id ? deps.accounts.find((a) => a.id === id)?.name : undefined);
+
   return {
     async addTransaction(args: AddTransactionArgs) {
       if (!args || typeof args.amount !== "number" || args.amount <= 0) {
@@ -38,6 +72,8 @@ export function buildTransactionHandlers(deps: {
         return { ok: false, error: `Categoria não encontrada. Categorias de ${args.type === "income" ? "entrada" : "gasto"}: ${list}` };
       }
       const date = args.date ? new Date(args.date).toISOString() : todayIso();
+      const where = resolveAccountAndMethod(args.account, args.paymentMethod);
+      if (where.error) return { ok: false, error: where.error };
       const tx: Transaction = {
         id: genId(),
         type: args.type,
@@ -45,10 +81,29 @@ export function buildTransactionHandlers(deps: {
         categoryId: cat.id,
         description: args.description?.trim() || cat.name,
         date,
+        accountId: where.accountId,
+        paymentMethod: where.paymentMethod,
         createdAt: new Date().toISOString(),
       };
       await deps.addTransaction(tx);
-      return { ok: true, transaction: tx };
+      return { ok: true, transaction: tx, accountName: accountName(tx.accountId) ?? "Sem conta" };
+    },
+
+    async listAccounts() {
+      return {
+        hasAccounts: deps.balances.hasAccounts,
+        accounts: deps.balances.accounts.map(({ account, balance }) => ({
+          name: account.name,
+          kind: account.kind,
+          balance,
+          isDefault: account.id === deps.defaultAccountId,
+        })),
+        unassigned: deps.balances.unassigned,
+        total: deps.balances.total,
+        note: deps.balances.hasAccounts
+          ? undefined
+          : "O usuário ainda não cadastrou contas (Configurações → Bancos e carteira). O total é o saldo geral acumulado.",
+      };
     },
 
     async listTransactions(args: ListTransactionsArgs) {
@@ -57,6 +112,11 @@ export function buildTransactionHandlers(deps: {
       if (args.category) {
         const cat = deps.categories.find((c) => c.name.toLowerCase() === args.category!.toLowerCase());
         if (cat) list = list.filter((t) => t.categoryId === cat.id);
+      }
+      if (args.account) {
+        const acc = findAccount(deps.accounts, args.account);
+        if (!acc) return { transactions: [], total: 0, error: `Conta "${args.account}" não encontrada.` } as never;
+        list = list.filter((t) => t.accountId === acc.id);
       }
       if (args.month || args.year) {
         const now = new Date();
@@ -73,6 +133,7 @@ export function buildTransactionHandlers(deps: {
       const enriched = sliced.map((t) => ({
         ...t,
         categoryName: deps.categories.find((c) => c.id === t.categoryId)?.name ?? "?",
+        accountName: accountName(t.accountId) ?? "Sem conta",
       }));
       return { transactions: enriched, total: list.length };
     },
@@ -129,6 +190,8 @@ export function buildTransactionHandlers(deps: {
       }
       const cat = findCategory(deps.categories, args.category || "", args.type);
       if (!cat) return { ok: false, error: "Categoria não encontrada" };
+      const where = resolveAccountAndMethod(args.account, args.paymentMethod);
+      if (where.error) return { ok: false, error: where.error };
       const r: Recurring = {
         id: genId(),
         type: args.type,
@@ -137,6 +200,8 @@ export function buildTransactionHandlers(deps: {
         description: args.description?.trim() || cat.name,
         dayOfMonth: args.dayOfMonth,
         active: true,
+        accountId: where.accountId,
+        paymentMethod: where.paymentMethod,
         createdAt: new Date().toISOString(),
       };
       await deps.addRecurring(r);
