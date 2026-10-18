@@ -1,17 +1,19 @@
 import type { Account, AccountKind, PaymentMethod, Transaction, Transfer } from "./types";
 
-export const ACCOUNT_KINDS: { value: AccountKind; label: string; icon: "briefcase" | "dollar-sign" | "trending-up" }[] = [
+export const ACCOUNT_KINDS: { value: AccountKind; label: string; icon: "briefcase" | "dollar-sign" | "trending-up" | "credit-card" }[] = [
   { value: "bank", label: "Banco", icon: "briefcase" },
   { value: "wallet", label: "Carteira", icon: "dollar-sign" },
   { value: "savings", label: "Poupança", icon: "trending-up" },
+  { value: "card", label: "Cartão de crédito", icon: "credit-card" },
 ];
 
 export const ACCOUNT_COLORS = ["#8b5cf6", "#10b981", "#3b82f6", "#f59e0b", "#ef4444", "#ec4899", "#14b8a6", "#64748b"];
 
-/** Crédito fica de fora por enquanto: cartão será tratado por fatura (conta própria), senão o saldo do banco cairia na hora da compra. */
+/** "Crédito" só aparece ao lançar em uma conta de cartão (o app o define sozinho); nas demais contas ficaria errado. */
 export const PAYMENT_METHODS: { value: PaymentMethod; label: string }[] = [
   { value: "pix", label: "Pix" },
   { value: "debit", label: "Débito" },
+  { value: "credit", label: "Crédito" },
   { value: "cash", label: "Dinheiro" },
   { value: "boleto", label: "Boleto" },
   { value: "transfer", label: "Transferência" },
@@ -31,10 +33,13 @@ export type AccountBalance = { account: Account; balance: number };
 export type BalanceSummary = {
   /** Existe ao menos uma conta ativa. */
   hasAccounts: boolean;
+  /** Bancos, carteira e poupança (sem cartões). */
   accounts: AccountBalance[];
+  /** Cartões de crédito: o saldo é negativo quando há dívida. Não entram no total em dinheiro. */
+  cards: AccountBalance[];
   /** Lançamentos feitos depois que as contas passaram a existir, mas sem conta. */
   unassigned: number;
-  /** Dinheiro total: soma das contas + "Sem conta". Sem contas, é o saldo acumulado de sempre. */
+  /** Dinheiro total: soma das contas (sem cartões) + "Sem conta". Sem contas, é o saldo acumulado de sempre. */
   total: number;
 };
 
@@ -73,7 +78,7 @@ export function computeBalances(
 
   if (active.length === 0) {
     const total = transactions.reduce((s, t) => s + net(t), 0);
-    return { hasAccounts: false, accounts: [], unassigned: 0, total: Math.round(total * 100) / 100 };
+    return { hasAccounts: false, accounts: [], cards: [], unassigned: 0, total: Math.round(total * 100) / 100 };
   }
 
   const known = new Set(accounts.map((a) => a.id));
@@ -86,9 +91,11 @@ export function computeBalances(
   }
   unassigned = Math.round(unassigned * 100) / 100;
 
-  const balances = active.map((account) => ({ account, balance: accountBalance(account, transactions, transfers) }));
+  const all = active.map((account) => ({ account, balance: accountBalance(account, transactions, transfers) }));
+  const balances = all.filter((b) => b.account.kind !== "card");
+  const cards = all.filter((b) => b.account.kind === "card");
   const total = Math.round((balances.reduce((s, b) => s + b.balance, 0) + unassigned) * 100) / 100;
-  return { hasAccounts: true, accounts: balances, unassigned, total };
+  return { hasAccounts: true, accounts: balances, cards, unassigned, total };
 }
 
 /** Saldo inicial que faz a conta mostrar `desired` hoje (usado ao corrigir o saldo). */
@@ -132,6 +139,9 @@ export function findAccount(accounts: Account[], query: string | undefined): Acc
 
 const METHOD_ALIASES: Record<string, PaymentMethod> = {
   pix: "pix",
+  credito: "credit",
+  "cartao de credito": "credit",
+  credit: "credit",
   debito: "debit",
   "cartao de debito": "debit",
   debit: "debit",

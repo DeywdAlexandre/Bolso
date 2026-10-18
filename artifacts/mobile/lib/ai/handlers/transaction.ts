@@ -1,6 +1,7 @@
 import { findAccount, parsePaymentMethod, validateTransfer, type BalanceSummary } from "../../accounts";
+import { planInstallments } from "../../cards";
 import type { Account, Category, PaymentMethod, Recurring, Transaction, TransactionType, Transfer } from "../../types";
-import { genId, todayIso } from "../../format";
+import { genId, todayIso, toIsoDay } from "../../format";
 import type {
   AddTransactionArgs,
   ListTransactionsArgs,
@@ -27,6 +28,8 @@ export function buildTransactionHandlers(deps: {
   addRecurring: (r: Recurring) => Promise<void>;
   accounts: Account[];
   balances: BalanceSummary;
+  /** Resumo dos cartões (fatura atual, dívida, parcelas) para list_accounts. */
+  cardSummaries?: () => unknown[];
   addTransfer: (t: Omit<Transfer, "id" | "createdAt">) => Promise<Transfer>;
   /** Conta usada quando o usuário não diz qual (só se ainda estiver ativa). */
   defaultAccountId?: string;
@@ -76,6 +79,39 @@ export function buildTransactionHandlers(deps: {
       const date = args.date ? new Date(args.date).toISOString() : todayIso();
       const where = resolveAccountAndMethod(args.account, args.paymentMethod);
       if (where.error) return { ok: false, error: where.error };
+      const onCard = deps.accounts.find((a) => a.id === where.accountId)?.kind === "card";
+      if (onCard) where.paymentMethod = "credit";
+      else if (where.paymentMethod === "credit") where.paymentMethod = undefined;
+
+      const count = Math.floor(args.installments ?? 1);
+      if (count > 1) {
+        if (!onCard || args.type !== "expense") {
+          return { ok: false, error: "Parcelamento só vale para compras (gastos) em uma conta de cartão de crédito." };
+        }
+        const groupId = "ig_" + genId();
+        const baseName = args.description?.trim() || cat.name;
+        const day = toIsoDay(new Date(date));
+        const created: Transaction[] = [];
+        for (const p of planInstallments(args.amount, count, day)) {
+          const part: Transaction = {
+            id: genId(),
+            type: "expense",
+            amount: p.amount,
+            categoryId: cat.id,
+            description: `${baseName} (${p.index}/${p.total})`,
+            date: new Date(`${p.date}T12:00:00`).toISOString(),
+            accountId: where.accountId,
+            paymentMethod: "credit",
+            installmentGroupId: groupId,
+            installmentIndex: p.index,
+            installmentTotal: p.total,
+            createdAt: new Date().toISOString(),
+          };
+          await deps.addTransaction(part);
+          created.push(part);
+        }
+        return { ok: true, installments: created.length, installmentAmount: created[0]!.amount, total: args.amount, accountName: accountName(where.accountId) };
+      }
       const tx: Transaction = {
         id: genId(),
         type: args.type,
@@ -118,6 +154,7 @@ export function buildTransactionHandlers(deps: {
           balance,
           isDefault: account.id === deps.defaultAccountId,
         })),
+        cards: deps.cardSummaries?.() ?? [],
         unassigned: deps.balances.unassigned,
         total: deps.balances.total,
         note: deps.balances.hasAccounts

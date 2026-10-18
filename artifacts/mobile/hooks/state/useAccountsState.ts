@@ -8,8 +8,11 @@ export type NewAccountInput = {
   name: string;
   kind: AccountKind;
   color: string;
-  /** Quanto há na conta hoje. */
+  /** Quanto há na conta hoje (em cartão: negativo = dívida em aberto). */
   balance: number;
+  closingDay?: number;
+  dueDay?: number;
+  creditLimit?: number;
 };
 
 export function useAccountsState() {
@@ -46,6 +49,9 @@ export function useAccountsState() {
         color: input.color,
         initialBalance: input.balance,
         balanceDate: toIsoDay(new Date()),
+        ...(input.kind === "card"
+          ? { closingDay: input.closingDay, dueDay: input.dueDay, creditLimit: input.creditLimit }
+          : {}),
         createdAt: now,
         updatedAt: now,
       };

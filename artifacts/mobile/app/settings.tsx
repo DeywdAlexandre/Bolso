@@ -105,7 +105,7 @@ export default function SettingsScreen() {
               <Text style={[styles.rowTitle, { color: colors.foreground }]}>Bancos e carteira</Text>
               <Text style={[styles.rowSub, { color: colors.mutedForeground }]}>
                 {balances.hasAccounts
-                  ? `${balances.accounts.length} ${balances.accounts.length === 1 ? "conta" : "contas"} · ${formatCurrency(balances.total)}`
+                  ? `${balances.accounts.length + balances.cards.length} ${balances.accounts.length + balances.cards.length === 1 ? "conta" : "contas"} · ${formatCurrency(balances.total)}`
                   : "Cadastre quanto você tem em cada banco e na carteira"}
               </Text>
             </View>

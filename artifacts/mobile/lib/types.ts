@@ -10,9 +10,9 @@ export type Category = {
   updatedAt?: string; // ISO
 };
 
-export type AccountKind = "bank" | "wallet" | "savings";
+export type AccountKind = "bank" | "wallet" | "savings" | "card";
 
-export type PaymentMethod = "pix" | "debit" | "cash" | "boleto" | "transfer" | "other";
+export type PaymentMethod = "pix" | "debit" | "credit" | "cash" | "boleto" | "transfer" | "other";
 
 /** Banco, carteira (dinheiro) ou poupança. O saldo é `initialBalance` + lançamentos da conta desde `balanceDate`. */
 export type Account = {
@@ -23,6 +23,12 @@ export type Account = {
   /** Saldo na data `balanceDate` (YYYY-MM-DD). Lançamentos anteriores já estão embutidos nele. */
   initialBalance: number;
   balanceDate: string;
+  /** Cartão de crédito: dia em que a fatura fecha (1-31). */
+  closingDay?: number;
+  /** Cartão de crédito: dia de vencimento da fatura (1-31). */
+  dueDay?: number;
+  /** Cartão de crédito: limite total. */
+  creditLimit?: number;
   archived?: boolean;
   createdAt: string;
   updatedAt?: string; // ISO
@@ -50,6 +56,10 @@ export type Transaction = {
   /** Conta de onde saiu / para onde entrou. Ausente = "Sem conta". */
   accountId?: string;
   paymentMethod?: PaymentMethod;
+  /** Compra parcelada: todas as parcelas compartilham o grupo; `installmentIndex` vai de 1 a `installmentTotal`. */
+  installmentGroupId?: string;
+  installmentIndex?: number;
+  installmentTotal?: number;
   recurringId?: string;
   createdAt: string;
   updatedAt?: string; // ISO

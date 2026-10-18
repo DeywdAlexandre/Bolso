@@ -23,6 +23,7 @@ import { buildVehicleHandlers } from "./ai/handlers/vehicle";
 import { buildGoalHandlers } from "./ai/handlers/goal";
 import { buildShiftHandlers } from "./ai/handlers/shift";
 import { buildBriefingHandlers } from "./ai/handlers/briefing";
+import { buildCardHandlers } from "./ai/handlers/card";
 
 export { AI_TOOLS } from "./ai/toolDefinitions";
 export { SYSTEM_PROMPT } from "./ai/systemPrompt";
@@ -32,6 +33,7 @@ export type ToolDeps = {
   accounts: Account[];
   balances: BalanceSummary;
   addTransfer: (t: Omit<Transfer, "id" | "createdAt">) => Promise<Transfer>;
+  transfers: Transfer[];
   defaultAccountId?: string;
   transactions: Transaction[];
   categories: Category[];
@@ -66,7 +68,15 @@ export type ToolDeps = {
 };
 
 export function buildToolHandlers(deps: ToolDeps) {
+  const cardHandlers = buildCardHandlers({
+    accounts: deps.accounts,
+    categories: deps.categories,
+    transactions: deps.transactions,
+    transfers: deps.transfers,
+  });
+
   const transactionHandlers = buildTransactionHandlers({
+    cardSummaries: cardHandlers.summarizeCards,
     transactions: deps.transactions,
     categories: deps.categories,
     addTransaction: deps.addTransactionRaw,
@@ -124,6 +134,7 @@ export function buildToolHandlers(deps: ToolDeps) {
 
   return {
     ...transactionHandlers,
+    getCardInvoice: cardHandlers.getCardInvoice,
     ...loanHandlers,
     ...vehicleHandlers,
     ...goalHandlers,

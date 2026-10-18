@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { accountBalance, computeBalances, initialBalanceFor, paymentMethodLabel, preselectedAccountId, validateTransfer } from "./accounts";
+import { accountBalance, computeBalances, initialBalanceFor, parsePaymentMethod, paymentMethodLabel, preselectedAccountId, validateTransfer } from "./accounts";
 import type { Account, Transaction } from "./types";
 
 const acc = (id: string, initialBalance: number, balanceDate = "2026-03-01", extra: Partial<Account> = {}): Account => ({
@@ -99,6 +99,30 @@ describe("pré-seleção e rótulos", () => {
   it("rótulos de forma de pagamento", () => {
     expect(paymentMethodLabel("pix")).toBe("Pix");
     expect(paymentMethodLabel(undefined)).toBeNull();
+  });
+});
+
+describe("cartão de crédito no saldo", () => {
+  const card = acc("cartao", 0, "2026-03-01", { kind: "card", closingDay: 20, dueDay: 28 });
+  const accounts = [acc("banco", 1000), card];
+
+  it("compra no cartão não reduz o dinheiro total; vira dívida na conta do cartão", () => {
+    const s = computeBalances(accounts, [tx("expense", 300, "2026-03-05", "cartao")]);
+    expect(s.total).toBe(1000);
+    expect(s.accounts.map((b) => b.account.id)).toEqual(["banco"]);
+    expect(s.cards.map((b) => [b.account.id, b.balance])).toEqual([["cartao", -300]]);
+  });
+
+  it("pagar a fatura (transferência banco → cartão) tira dinheiro do total e quita a dívida", () => {
+    const tr = { id: "p", fromAccountId: "banco", toAccountId: "cartao", amount: 300, date: "2026-03-25T12:00:00.000Z", createdAt: "" };
+    const s = computeBalances(accounts, [tx("expense", 300, "2026-03-05", "cartao")], [tr]);
+    expect(s.total).toBe(700);
+    expect(s.cards[0]!.balance).toBe(0);
+  });
+
+  it("'Crédito' é uma forma de pagamento reconhecida", () => {
+    expect(paymentMethodLabel("credit")).toBe("Crédito");
+    expect(parsePaymentMethod("Crédito")).toBe("credit");
   });
 });
 
