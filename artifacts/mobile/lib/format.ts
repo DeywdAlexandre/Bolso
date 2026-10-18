@@ -104,6 +104,12 @@ export function fromIsoDay(s: string): Date {
   return new Date(y, (m || 1) - 1, d || 1, 12, 0, 0, 0);
 }
 
+/** Meia-noite local do dia "YYYY-MM-DD" (aceita também um ISO completo, usando só a data). */
+export function localDayStart(s: string): Date {
+  const [y, m, d] = s.slice(0, 10).split("-").map((n) => parseInt(n, 10));
+  return new Date(y, (m || 1) - 1, d || 1, 0, 0, 0, 0);
+}
+
 export function isoDayOf(iso: string): string {
   const d = new Date(iso);
   return toIsoDay(d);

@@ -3,6 +3,7 @@ import * as DocumentPicker from "expo-document-picker";
 import * as FileSystem from "expo-file-system/legacy";
 import * as Sharing from "expo-sharing";
 import { router } from "expo-router";
+import { toIsoDay } from "@/lib/format";
 import { listSnapshots } from "@/lib/snapshots";
 import { useAppData } from "@/contexts/AppDataContext";
 
@@ -12,7 +13,7 @@ export function useBackup() {
   const handleExport = async () => {
     try {
       const json = await exportData();
-      const filename = `backup_prisma_${new Date().toISOString().split("T")[0]}.json`;
+      const filename = `backup_prisma_${toIsoDay(new Date())}.json`;
 
       if (Platform.OS === "web") {
         const blob = new Blob([json], { type: "application/json" });
