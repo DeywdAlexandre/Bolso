@@ -3,6 +3,7 @@ import * as DocumentPicker from "expo-document-picker";
 import * as FileSystem from "expo-file-system/legacy";
 import * as Sharing from "expo-sharing";
 import { router } from "expo-router";
+import { listSnapshots } from "@/lib/snapshots";
 import { useAppData } from "@/contexts/AppDataContext";
 
 export function useBackup() {
@@ -76,8 +77,42 @@ export function useBackup() {
     }
   };
 
+  const handleRestoreSnapshot = async () => {
+    try {
+      const snapshots = await listSnapshots();
+      const latest = snapshots[0];
+      if (!latest) {
+        Alert.alert("Backup automático", "Ainda não há cópias automáticas neste aparelho.");
+        return;
+      }
+      const when = new Date(latest.createdAt).toLocaleString("pt-BR");
+      const label = latest.reason === "auto" ? "backup automático" : "cópia feita antes da última importação";
+      const msg = `Restaurar o ${label} de ${when}? Os dados atuais serão substituídos.`;
+
+      const proceed = await new Promise<boolean>((resolve) => {
+        if (Platform.OS === "web") {
+          resolve(window.confirm(msg));
+        } else {
+          Alert.alert("Restaurar cópia", msg, [
+            { text: "Cancelar", style: "cancel", onPress: () => resolve(false) },
+            { text: "Restaurar", style: "destructive", onPress: () => resolve(true) },
+          ]);
+        }
+      });
+      if (!proceed) return;
+
+      await importData(latest.json);
+      Alert.alert("Sucesso", "Cópia restaurada com sucesso!");
+      setTimeout(() => router.replace("/(tabs)"), 1000);
+    } catch (err) {
+      console.error(err);
+      Alert.alert("Erro", "Não foi possível restaurar a cópia.");
+    }
+  };
+
   return {
     handleExport,
     handleImport,
+    handleRestoreSnapshot,
   };
 }

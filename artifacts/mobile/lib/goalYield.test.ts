@@ -6,7 +6,7 @@ import type { Goal } from "./types";
 const base: Goal = {
   id: "g1", name: "Reserva", type: "target", currentAmount: 1000, isYielding: true,
   estimatedYield: 1, icon: "star", color: "#10b981", createdAt: "2026-01-01T00:00:00.000Z",
-} as Goal;
+} as unknown as Goal;
 
 const day = (iso: string) => new Date(iso + "T00:00:00.000Z");
 

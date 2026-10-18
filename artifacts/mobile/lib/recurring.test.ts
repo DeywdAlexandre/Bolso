@@ -6,7 +6,7 @@ import type { Recurring } from "./types";
 const rec: Recurring = {
   id: "r1", type: "expense", amount: 50, categoryId: "cat_x", description: "Streaming",
   dayOfMonth: 31, active: true, createdAt: "2026-01-01T00:00:00.000Z",
-} as Recurring;
+} as unknown as Recurring;
 
 describe("buildRecurringTransaction", () => {
   it("limita o dia ao último dia do mês (31 em fevereiro)", () => {
