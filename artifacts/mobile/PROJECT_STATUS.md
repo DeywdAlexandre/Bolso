@@ -56,6 +56,7 @@ O **Prisma** é um assistente financeiro pessoal "Offline-First" com inteligênc
 
 ### Consumo (km/L) e instalação do PWA (out/2026)
 - **km/L**: novo motor `lib/fuelSegments.ts`. Antes só usava Reserva se houvesse menos de 2 Cheios (e ignorava as Reservas com 2+ Cheios); agora Cheio→Cheio e Reserva→Reserva coexistem sem contar o mesmo trecho duas vezes. Parciais e abastecimentos do meio somam ao trecho. 18 testes cobrindo reserva, parcial, cheio, mistura, ordem e dados ruins.
+- **Finn**: `get_vehicle_stats` devolve trechos medidos, melhor/pior trecho e trecho em andamento; o prompt ensina as regras de Cheio/Reserva/Parcial.
 - **Tela do veículo**: nova seção "Trechos de consumo" com cada trecho medido e o trecho em andamento.
 - **Instalar**: botão em Configurações e convite dispensável (14 dias) no Chrome/Android e iPhone/Safari.
 
