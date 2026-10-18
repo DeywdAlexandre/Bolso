@@ -50,6 +50,15 @@ O **Prisma** é um assistente financeiro pessoal "Offline-First" com inteligênc
 - **Correção**: histórico do chat podia começar com mensagem de ferramenta órfã após o corte de 50 mensagens, causando erro na API; agora sempre inicia em uma mensagem do usuário.
 - **Docs**: `replit.md`, `agente.md` e skills atualizados.
 
+### Melhorias de qualidade (out/2026)
+- **Testes**: Vitest + CI (typecheck e testes). Rendimento das metas agora credita todos os ciclos de 30 dias pendentes.
+- **IA (Finn)**: handlers tipados — corrigidos metas (`title`→`name`), abastecimento, troca de óleo, pagamento de empréstimo (vínculo com o extrato) e plantão recebido; dados atualizados a cada rodada de ferramentas.
+- **Backup**: validação com zod antes de importar, cópia automática semanal e antes de cada importação, restauração em Configurações.
+- **Segurança**: `AuthGuard` nunca era renderizado (bloqueio biométrico não funcionava); agora envolve o app. Plugins nativos de biometria/notificações declarados no `app.json`.
+- **Datas**: corrigido uso de `toISOString()` (dia errado após 21h; regras semanais no dia da semana errado).
+- **Plantões**: `shifts.tsx` dividido em `components/shifts/*` (1395 → 764 linhas).
+- **Valores em centavos**: decidido NÃO migrar o armazenamento (risco alto para dados existentes); arredondamento centralizado em `lib/money.ts` nos pontos de cálculo.
+
 ### 06/05/2026
 
 - **v1.5.1 (Estabilização)**: Adicionados plugins nativos no `app.json` (Biometria, Notificações, Câmera, etc).

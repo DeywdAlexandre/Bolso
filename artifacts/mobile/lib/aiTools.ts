@@ -14,7 +14,6 @@ import type {
   Vehicle,
   VehicleExpense,
 } from "./types";
-import { AI_TOOLS } from "./ai/toolDefinitions";
 import { buildTransactionHandlers } from "./ai/handlers/transaction";
 import { buildLoanHandlers } from "./ai/handlers/loan";
 import { buildVehicleHandlers } from "./ai/handlers/vehicle";
@@ -24,15 +23,6 @@ import { buildBriefingHandlers } from "./ai/handlers/briefing";
 
 export { AI_TOOLS } from "./ai/toolDefinitions";
 export { SYSTEM_PROMPT } from "./ai/systemPrompt";
-export type {
-  AddTransactionArgs,
-  ListTransactionsArgs,
-  SummaryArgs,
-  AddRecurringArgs,
-  DeleteTransactionArgs,
-  AddVehicleExpenseArgs,
-  ToolHandlers,
-} from "./ai/toolTypes";
 
 /** Dados e ações do app que as ferramentas da IA podem usar. */
 export type ToolDeps = {
