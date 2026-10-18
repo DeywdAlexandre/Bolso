@@ -28,6 +28,18 @@ export type Account = {
   updatedAt?: string; // ISO
 };
 
+/** Dinheiro que muda de uma conta para outra (saque, Pix para si mesmo...). Não é gasto nem entrada. */
+export type Transfer = {
+  id: string;
+  fromAccountId: string;
+  toAccountId: string;
+  amount: number;
+  date: string;
+  note?: string;
+  createdAt: string;
+  updatedAt?: string; // ISO
+};
+
 export type Transaction = {
   id: string;
   type: TransactionType;

@@ -6,13 +6,14 @@ import { router, Stack } from "expo-router";
 import { EmptyState } from "@/components/EmptyState";
 import { PeriodSelector, type Period } from "@/components/PeriodSelector";
 import { TransactionItem } from "@/components/TransactionItem";
+import { TransferItem } from "@/components/accounts/TransferItem";
 import { useAppData } from "@/contexts/AppDataContext";
 import { AccountChip } from "@/components/accounts/AccountChip";
 import { useColors } from "@/hooks/useColors";
 
 export default function HistoryScreen() {
   const colors = useColors();
-  const { transactions, categories, accounts, ready } = useAppData();
+  const { transactions, categories, accounts, transfers, ready } = useAppData();
   const activeAccounts = accounts.filter((a) => !a.archived);
   // "all" | "none" (sem conta) | id da conta
   const [accountFilter, setAccountFilter] = useState<string>("all");
@@ -43,9 +44,28 @@ export default function HistoryScreen() {
     });
   }, [transactions, period, accountFilter]);
 
-  const sorted = useMemo(() => {
-    return [...filtered].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
-  }, [filtered]);
+  // Transferências aparecem no extrato (sem entrar em gastos/entradas), no mesmo período e filtro de conta.
+  const items = useMemo(() => {
+    const inPeriod = (iso: string) => {
+      const d = new Date(iso);
+      if (period.mode === "month") return d.getMonth() === period.month && d.getFullYear() === period.year;
+      if (period.mode === "year") return d.getFullYear() === period.year;
+      if (period.mode === "range" && period.startDate && period.endDate) {
+        const day = iso.split("T")[0]!;
+        return day >= period.startDate && day <= period.endDate;
+      }
+      return true;
+    };
+    const visibleTransfers = transfers.filter((tr) => {
+      if (accountFilter === "none") return false;
+      if (accountFilter !== "all" && tr.fromAccountId !== accountFilter && tr.toAccountId !== accountFilter) return false;
+      return inPeriod(tr.date);
+    });
+    return [
+      ...filtered.map((t) => ({ kind: "tx" as const, date: t.date, tx: t })),
+      ...visibleTransfers.map((tr) => ({ kind: "transfer" as const, date: tr.date, transfer: tr })),
+    ].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+  }, [filtered, transfers, period, accountFilter]);
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
@@ -80,7 +100,7 @@ export default function HistoryScreen() {
               <View key={i} style={[styles.skeleton, { backgroundColor: colors.muted }]} />
             ))}
           </View>
-        ) : sorted.length === 0 ? (
+        ) : items.length === 0 ? (
           <View style={{ marginTop: 60 }}>
             <EmptyState
               icon="inbox"
@@ -90,18 +110,22 @@ export default function HistoryScreen() {
           </View>
         ) : (
           <View style={[styles.listCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
-            {sorted.map((t, idx) => {
-              const cat = categories.find((c) => c.id === t.categoryId);
+            {items.map((item, idx) => {
               return (
-                <React.Fragment key={t.id}>
-                  <TransactionItem
-                    transaction={t}
-                    category={cat}
-                    onPress={() =>
-                      router.push({ pathname: "/transaction/[id]", params: { id: t.id } })
-                    }
-                  />
-                  {idx < sorted.length - 1 && (
+                <React.Fragment key={item.kind === "tx" ? item.tx.id : item.transfer.id}>
+                  {item.kind === "tx" ? (
+                    <TransactionItem
+                      transaction={item.tx}
+                      category={categories.find((c) => c.id === item.tx.categoryId)}
+                      onPress={() => router.push({ pathname: "/transaction/[id]", params: { id: item.tx.id } })}
+                    />
+                  ) : (
+                    <TransferItem
+                      transfer={item.transfer}
+                      onPress={() => router.push({ pathname: "/accounts/transfer", params: { id: item.transfer.id } } as any)}
+                    />
+                  )}
+                  {idx < items.length - 1 && (
                     <View style={[styles.divider, { backgroundColor: colors.border }]} />
                   )}
                 </React.Fragment>

@@ -13,6 +13,7 @@ import type {
   Shift,
   ShiftRule,
   Transaction,
+  Transfer,
   Vehicle,
   VehicleExpense,
 } from "./types";
@@ -30,6 +31,7 @@ export { SYSTEM_PROMPT } from "./ai/systemPrompt";
 export type ToolDeps = {
   accounts: Account[];
   balances: BalanceSummary;
+  addTransfer: (t: Omit<Transfer, "id" | "createdAt">) => Promise<Transfer>;
   defaultAccountId?: string;
   transactions: Transaction[];
   categories: Category[];
@@ -72,6 +74,7 @@ export function buildToolHandlers(deps: ToolDeps) {
     addRecurring: deps.addRecurring,
     accounts: deps.accounts,
     balances: deps.balances,
+    addTransfer: deps.addTransfer,
     defaultAccountId: deps.defaultAccountId,
   });
 

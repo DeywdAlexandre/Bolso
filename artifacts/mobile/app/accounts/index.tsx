@@ -91,6 +91,19 @@ export default function AccountsScreen() {
         <Text style={[styles.addText, { color: colors.primaryForeground }]}>Nova conta</Text>
       </Pressable>
 
+      {balances.accounts.length >= 2 && (
+        <Pressable
+          onPress={() => router.push("/accounts/transfer" as any)}
+          style={({ pressed }) => [
+            styles.add,
+            { backgroundColor: colors.card, borderWidth: 1, borderColor: colors.border, opacity: pressed ? 0.85 : 1 },
+          ]}
+        >
+          <Feather name="repeat" size={18} color={colors.foreground} />
+          <Text style={[styles.addText, { color: colors.foreground }]}>Transferir entre contas</Text>
+        </Pressable>
+      )}
+
       {archived.length > 0 && (
         <View style={{ gap: 8, marginTop: 8 }}>
           <Text style={[styles.sectionTitle, { color: colors.mutedForeground }]}>Arquivadas</Text>

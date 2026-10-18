@@ -4,7 +4,7 @@ import { computeBalances, findAccount, parsePaymentMethod } from "../accounts";
 import { buildTransactionHandlers } from "./handlers/transaction";
 import { AI_TOOLS } from "./toolDefinitions";
 import { SYSTEM_PROMPT } from "./systemPrompt";
-import type { Account, Category, Recurring, Transaction } from "../types";
+import type { Account, Category, Recurring, Transaction, Transfer } from "../types";
 
 const acc = (id: string, name: string, initialBalance: number, extra: Partial<Account> = {}): Account => ({
   id, name, kind: "bank", color: "#000", initialBalance, balanceDate: "2026-01-01", createdAt: "2026-01-01T00:00:00.000Z", ...extra,
@@ -15,7 +15,9 @@ const categories: Category[] = [{ id: "cat_food", name: "Alimentação", icon: "
 function setup(defaultAccountId?: string, existing: Transaction[] = []) {
   const added: Transaction[] = [];
   const recs: Recurring[] = [];
+  const moved: Omit<Transfer, "id" | "createdAt">[] = [];
   const handlers = buildTransactionHandlers({
+    addTransfer: async (t) => { moved.push(t); return { ...t, id: "tr1", createdAt: "" }; },
     transactions: existing,
     categories,
     addTransaction: async (t) => { added.push(t); },
@@ -25,7 +27,7 @@ function setup(defaultAccountId?: string, existing: Transaction[] = []) {
     balances: computeBalances(accounts, existing),
     defaultAccountId,
   });
-  return { handlers, added, recs };
+  return { handlers, added, recs, moved };
 }
 
 describe("busca de conta e forma de pagamento", () => {
@@ -105,7 +107,7 @@ describe("Finn: list_accounts e filtro por conta", () => {
   it("sem contas cadastradas explica ao Finn", async () => {
     const handlers = buildTransactionHandlers({
       transactions: [], categories, addTransaction: async () => {}, removeTransaction: async () => {}, addRecurring: async () => {},
-      accounts: [], balances: computeBalances([], []),
+      accounts: [], balances: computeBalances([], []), addTransfer: async (t) => ({ ...t, id: "x", createdAt: "" }),
     });
     expect((await handlers.listAccounts()).note).toMatch(/não cadastrou contas/);
   });
@@ -117,6 +119,29 @@ describe("Finn: list_accounts e filtro por conta", () => {
     expect(r.transactions[0]!.accountName).toBe("Itaú");
     const all = await handlers.listTransactions({});
     expect(all.transactions.find((t) => t.id === "t3")!.accountName).toBe("Sem conta");
+  });
+});
+
+describe("Finn: transfer_between_accounts", () => {
+  it("move dinheiro entre contas pelo nome", async () => {
+    const { handlers, moved } = setup();
+    const r = await handlers.transferBetweenAccounts({ from: "nubank", to: "itau", amount: 200, note: "saque" });
+    expect(r).toMatchObject({ ok: true, from: "Nubank", to: "Itaú" });
+    expect(moved[0]).toMatchObject({ fromAccountId: "a1", toAccountId: "a2", amount: 200, note: "saque" });
+  });
+
+  it("recusa contas inexistentes, iguais, arquivadas ou valor inválido, sem gravar nada", async () => {
+    const { handlers, moved } = setup();
+    expect(await handlers.transferBetweenAccounts({ from: "Inter", to: "Itaú", amount: 10 })).toMatchObject({ ok: false });
+    expect(await handlers.transferBetweenAccounts({ from: "Nubank", to: "Nubank", amount: 10 })).toMatchObject({ ok: false });
+    expect(await handlers.transferBetweenAccounts({ from: "Nubank", to: "Velha", amount: 10 })).toMatchObject({ ok: false });
+    expect(await handlers.transferBetweenAccounts({ from: "Nubank", to: "Itaú", amount: -5 })).toMatchObject({ ok: false });
+    expect(moved).toHaveLength(0);
+  });
+
+  it("a ferramenta está definida para o modelo", () => {
+    expect(AI_TOOLS.some((t) => t.function.name === "transfer_between_accounts")).toBe(true);
+    expect(SYSTEM_PROMPT).toMatch(/transfer_between_accounts/);
   });
 });
 

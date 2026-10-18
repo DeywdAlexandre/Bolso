@@ -20,6 +20,16 @@ export type ListTransactionsArgs = {
   limit?: number;
 };
 
+export type TransferArgs = {
+  /** Nome da conta de origem. */
+  from: string;
+  /** Nome da conta de destino. */
+  to: string;
+  amount: number;
+  date?: string;
+  note?: string;
+};
+
 export type SummaryArgs = {
   month?: number;
   year?: number;
