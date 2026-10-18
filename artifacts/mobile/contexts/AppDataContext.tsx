@@ -15,6 +15,7 @@ import {
 } from "@/lib/notifications";
 import type {
   Account,
+  Transfer,
   Category,
   Fueling,
   OilChange,
@@ -60,6 +61,10 @@ type AppDataContextValue = {
   shiftRules: ShiftRule[];
   shiftTemplates: ShiftTemplate[];
   accounts: Account[];
+  transfers: Transfer[];
+  addTransfer: (input: Omit<Transfer, "id" | "createdAt">) => Promise<Transfer>;
+  updateTransfer: (id: string, patch: Partial<Omit<Transfer, "id" | "createdAt">>) => Promise<void>;
+  removeTransfer: (id: string) => Promise<void>;
   /** Saldos por conta, "Sem conta" e total (sem contas, é o saldo acumulado de sempre). */
   balances: BalanceSummary;
 
@@ -147,6 +152,7 @@ type BackupPayload = {
   shiftRules?: ShiftRule[];
   shiftTemplates?: ShiftTemplate[];
   accounts?: Account[];
+  transfers?: Transfer[];
   userName?: string;
 };
 
@@ -312,6 +318,7 @@ export function AppDataProvider({ children }: { children: React.ReactNode }) {
         shiftRules: shiftState.shiftRules,
         shiftTemplates: shiftState.shiftTemplates,
         accounts: accountsState.accounts,
+        transfers: accountsState.transfers,
       }
     };
     return JSON.stringify(payload);
@@ -320,7 +327,7 @@ export function AppDataProvider({ children }: { children: React.ReactNode }) {
     vehState.vehicles, vehState.fuelings, vehState.oilChanges, vehState.vehicleExpenses,
     loanState.loanContacts, loanState.loans, loanState.loanPayments,
     goalState.goals, goalState.goalDeposits, userName,
-    shiftState.shifts, shiftState.shiftRules, shiftState.shiftTemplates, accountsState.accounts
+    shiftState.shifts, shiftState.shiftRules, shiftState.shiftTemplates, accountsState.accounts, accountsState.transfers
   ]);
 
   // Cópia local automática semanal (as 3 mais recentes ficam em AsyncStorage).
@@ -366,7 +373,7 @@ export function AppDataProvider({ children }: { children: React.ReactNode }) {
           shiftRules: p.shiftRules,
           shiftTemplates: p.shiftTemplates,
         }),
-        accountsState.importState({ accounts: p.accounts }),
+        accountsState.importState({ accounts: p.accounts, transfers: p.transfers }),
         saveJson(STORAGE_KEYS.userName, p.userName || ""),
       ]);
       setUserNameState(p.userName || "");
@@ -377,8 +384,8 @@ export function AppDataProvider({ children }: { children: React.ReactNode }) {
   }, [exportData, accountsState.importState, txState.importState, vehState.importState, loanState.importState, goalState.importState, shiftState.importState]);
 
   const balances = useMemo(
-    () => computeBalances(accountsState.accounts, txState.transactions),
-    [accountsState.accounts, txState.transactions],
+    () => computeBalances(accountsState.accounts, txState.transactions, accountsState.transfers),
+    [accountsState.accounts, txState.transactions, accountsState.transfers],
   );
 
   const correctAccountBalance = useCallback(
@@ -386,10 +393,10 @@ export function AppDataProvider({ children }: { children: React.ReactNode }) {
       const account = accountsState.accounts.find((a) => a.id === id);
       if (!account) return;
       await accountsState.updateAccount(id, {
-        initialBalance: initialBalanceFor(account, txState.transactions, desired),
+        initialBalance: initialBalanceFor(account, txState.transactions, desired, accountsState.transfers),
       });
     },
-    [accountsState.accounts, accountsState.updateAccount, txState.transactions],
+    [accountsState.accounts, accountsState.transfers, accountsState.updateAccount, txState.transactions],
   );
 
   const value = useMemo<AppDataContextValue>(
@@ -403,6 +410,10 @@ export function AppDataProvider({ children }: { children: React.ReactNode }) {
       categories: txState.categories,
       addTransaction,
       accounts: accountsState.accounts,
+      transfers: accountsState.transfers,
+      addTransfer: accountsState.addTransfer,
+      updateTransfer: accountsState.updateTransfer,
+      removeTransfer: accountsState.removeTransfer,
       balances,
       addAccount: accountsState.addAccount,
       updateAccount: accountsState.updateAccount,

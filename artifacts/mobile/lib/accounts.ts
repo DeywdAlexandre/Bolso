@@ -1,4 +1,4 @@
-import type { Account, AccountKind, PaymentMethod, Transaction } from "./types";
+import type { Account, AccountKind, PaymentMethod, Transaction, Transfer } from "./types";
 
 export const ACCOUNT_KINDS: { value: AccountKind; label: string; icon: "briefcase" | "dollar-sign" | "trending-up" }[] = [
   { value: "bank", label: "Banco", icon: "briefcase" },
@@ -38,16 +38,37 @@ export type BalanceSummary = {
   total: number;
 };
 
-/** Saldo atual de uma conta: saldo inicial + lançamentos dela a partir de `balanceDate`. */
-export function accountBalance(account: Account, transactions: Transaction[]): number {
+/** Saldo atual de uma conta: saldo inicial + lançamentos e transferências dela a partir de `balanceDate`. */
+export function accountBalance(account: Account, transactions: Transaction[], transfers: Transfer[] = []): number {
   let balance = account.initialBalance;
   for (const t of transactions) {
     if (t.accountId === account.id && dayOf(t) >= account.balanceDate) balance += net(t);
   }
+  for (const tr of transfers) {
+    if (tr.date.split("T")[0]! < account.balanceDate) continue;
+    if (tr.toAccountId === account.id) balance += tr.amount;
+    if (tr.fromAccountId === account.id) balance -= tr.amount;
+  }
   return Math.round(balance * 100) / 100;
 }
 
-export function computeBalances(accounts: Account[], transactions: Transaction[]): BalanceSummary {
+export type TransferInput = { fromAccountId: string; toAccountId: string; amount: number };
+
+/** Mensagem de erro se a transferência não for válida; null se estiver ok. */
+export function validateTransfer(accounts: Account[], input: TransferInput): string | null {
+  const active = (id: string) => accounts.some((a) => a.id === id && !a.archived);
+  if (!(input.amount > 0)) return "Informe um valor maior que zero.";
+  if (!active(input.fromAccountId)) return "Escolha a conta de origem.";
+  if (!active(input.toAccountId)) return "Escolha a conta de destino.";
+  if (input.fromAccountId === input.toAccountId) return "Origem e destino precisam ser contas diferentes.";
+  return null;
+}
+
+export function computeBalances(
+  accounts: Account[],
+  transactions: Transaction[],
+  transfers: Transfer[] = [],
+): BalanceSummary {
   const active = accounts.filter((a) => !a.archived);
 
   if (active.length === 0) {
@@ -65,14 +86,19 @@ export function computeBalances(accounts: Account[], transactions: Transaction[]
   }
   unassigned = Math.round(unassigned * 100) / 100;
 
-  const balances = active.map((account) => ({ account, balance: accountBalance(account, transactions) }));
+  const balances = active.map((account) => ({ account, balance: accountBalance(account, transactions, transfers) }));
   const total = Math.round((balances.reduce((s, b) => s + b.balance, 0) + unassigned) * 100) / 100;
   return { hasAccounts: true, accounts: balances, unassigned, total };
 }
 
 /** Saldo inicial que faz a conta mostrar `desired` hoje (usado ao corrigir o saldo). */
-export function initialBalanceFor(account: Account, transactions: Transaction[], desired: number): number {
-  const linked = accountBalance({ ...account, initialBalance: 0 }, transactions);
+export function initialBalanceFor(
+  account: Account,
+  transactions: Transaction[],
+  desired: number,
+  transfers: Transfer[] = [],
+): number {
+  const linked = accountBalance({ ...account, initialBalance: 0 }, transactions, transfers);
   return Math.round((desired - linked) * 100) / 100;
 }
 

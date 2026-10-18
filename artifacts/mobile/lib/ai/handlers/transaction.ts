@@ -1,5 +1,5 @@
-import { findAccount, parsePaymentMethod, type BalanceSummary } from "../../accounts";
-import type { Account, Category, PaymentMethod, Recurring, Transaction, TransactionType } from "../../types";
+import { findAccount, parsePaymentMethod, validateTransfer, type BalanceSummary } from "../../accounts";
+import type { Account, Category, PaymentMethod, Recurring, Transaction, TransactionType, Transfer } from "../../types";
 import { genId, todayIso } from "../../format";
 import type {
   AddTransactionArgs,
@@ -7,6 +7,7 @@ import type {
   SummaryArgs,
   AddRecurringArgs,
   DeleteTransactionArgs,
+  TransferArgs,
 } from "../toolTypes";
 
 export function findCategory(categories: Category[], name: string, type: TransactionType): Category | undefined {
@@ -26,6 +27,7 @@ export function buildTransactionHandlers(deps: {
   addRecurring: (r: Recurring) => Promise<void>;
   accounts: Account[];
   balances: BalanceSummary;
+  addTransfer: (t: Omit<Transfer, "id" | "createdAt">) => Promise<Transfer>;
   /** Conta usada quando o usuário não diz qual (só se ainda estiver ativa). */
   defaultAccountId?: string;
 }) {
@@ -87,6 +89,24 @@ export function buildTransactionHandlers(deps: {
       };
       await deps.addTransaction(tx);
       return { ok: true, transaction: tx, accountName: accountName(tx.accountId) ?? "Sem conta" };
+    },
+
+    async transferBetweenAccounts(args: TransferArgs) {
+      const from = findAccount(deps.accounts, args?.from);
+      const to = findAccount(deps.accounts, args?.to);
+      const names = activeAccounts().map((a) => a.name).join(", ") || "nenhuma conta cadastrada";
+      if (!from) return { ok: false, error: `Conta de origem "${args?.from}" não encontrada. Contas disponíveis: ${names}.` };
+      if (!to) return { ok: false, error: `Conta de destino "${args?.to}" não encontrada. Contas disponíveis: ${names}.` };
+      const error = validateTransfer(deps.accounts, { fromAccountId: from.id, toAccountId: to.id, amount: args.amount });
+      if (error) return { ok: false, error };
+      const transfer = await deps.addTransfer({
+        fromAccountId: from.id,
+        toAccountId: to.id,
+        amount: args.amount,
+        date: args.date ? new Date(args.date).toISOString() : todayIso(),
+        note: args.note?.trim() || undefined,
+      });
+      return { ok: true, transfer, from: from.name, to: to.name };
     },
 
     async listAccounts() {

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { accountBalance, computeBalances, initialBalanceFor, paymentMethodLabel, preselectedAccountId } from "./accounts";
+import { accountBalance, computeBalances, initialBalanceFor, paymentMethodLabel, preselectedAccountId, validateTransfer } from "./accounts";
 import type { Account, Transaction } from "./types";
 
 const acc = (id: string, initialBalance: number, balanceDate = "2026-03-01", extra: Partial<Account> = {}): Account => ({
@@ -99,5 +99,51 @@ describe("pré-seleção e rótulos", () => {
   it("rótulos de forma de pagamento", () => {
     expect(paymentMethodLabel("pix")).toBe("Pix");
     expect(paymentMethodLabel(undefined)).toBeNull();
+  });
+});
+
+describe("transferências entre contas", () => {
+  const accounts = [acc("banco", 1000), acc("carteira", 50, "2026-03-01", { kind: "wallet" })];
+  const transfer = (amount: number, day: string, from = "banco", to = "carteira") => ({
+    id: `tr${++n}`, fromAccountId: from, toAccountId: to, amount, date: `${day}T12:00:00.000Z`, createdAt: "",
+  });
+
+  it("tira da origem e põe no destino sem mudar o total", () => {
+    const s = computeBalances(accounts, [], [transfer(200, "2026-03-05")]);
+    expect(s.accounts.map((b) => b.balance)).toEqual([800, 250]);
+    expect(s.total).toBe(1050);
+    expect(s.unassigned).toBe(0);
+  });
+
+  it("não vira gasto nem entrada: lançamentos continuam separados", () => {
+    const s = computeBalances(accounts, [tx("expense", 30, "2026-03-06", "carteira")], [transfer(200, "2026-03-05")]);
+    expect(s.accounts.map((b) => b.balance)).toEqual([800, 220]);
+    expect(s.total).toBe(1020);
+  });
+
+  it("transferência anterior à data do saldo já está embutida e não conta", () => {
+    expect(accountBalance(accounts[1]!, [], [transfer(200, "2026-02-20")])).toBe(50);
+  });
+
+  it("para uma conta arquivada o dinheiro sai do total", () => {
+    const withArchived = [...accounts, acc("velha", 0, "2026-03-01", { archived: true })];
+    const s = computeBalances(withArchived, [], [transfer(100, "2026-03-05", "banco", "velha")]);
+    expect(s.total).toBe(950);
+  });
+
+  it("initialBalanceFor considera as transferências ao corrigir o saldo", () => {
+    const trs = [transfer(200, "2026-03-05")];
+    const initial = initialBalanceFor(accounts[0]!, [], 500, trs);
+    expect(accountBalance({ ...accounts[0]!, initialBalance: initial }, [], trs)).toBe(500);
+  });
+
+  it("validateTransfer barra valor inválido, contas iguais, arquivadas ou inexistentes", () => {
+    const list = [...accounts, acc("velha", 0, "2026-03-01", { archived: true })];
+    const ok = { fromAccountId: "banco", toAccountId: "carteira", amount: 10 };
+    expect(validateTransfer(list, ok)).toBeNull();
+    expect(validateTransfer(list, { ...ok, amount: 0 })).toMatch(/valor/);
+    expect(validateTransfer(list, { ...ok, toAccountId: "banco" })).toMatch(/diferentes/);
+    expect(validateTransfer(list, { ...ok, toAccountId: "velha" })).toMatch(/destino/);
+    expect(validateTransfer(list, { ...ok, fromAccountId: "nada" })).toMatch(/origem/);
   });
 });

@@ -104,6 +104,25 @@ export const AI_TOOLS: ToolDefinition[] = [
   {
     type: "function",
     function: {
+      name: "transfer_between_accounts",
+      description:
+        "Move dinheiro de uma conta para outra (ex.: sacar do banco para a carteira, Pix para si mesmo). Não é gasto nem entrada: só muda o saldo das duas contas.",
+      parameters: {
+        type: "object",
+        properties: {
+          from: { type: "string", description: "Nome da conta de origem (veja list_accounts)" },
+          to: { type: "string", description: "Nome da conta de destino" },
+          amount: { type: "number", description: "Valor positivo em reais" },
+          date: { type: "string", description: "Data ISO opcional (YYYY-MM-DD). Padrão é hoje." },
+          note: { type: "string", description: "Observação opcional" },
+        },
+        required: ["from", "to", "amount"],
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
       name: "delete_transaction",
       description: "Remove uma transação. Forneça o id se já souber, senão uma descrição para buscar.",
       parameters: {

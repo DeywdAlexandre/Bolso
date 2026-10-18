@@ -78,6 +78,7 @@ function RootLayoutNav() {
       <Stack.Screen name="categories" options={{ title: "Categorias" }} />
       <Stack.Screen name="accounts/index" options={{ title: "Contas e carteira" }} />
       <Stack.Screen name="accounts/[id]" options={{ title: "Conta" }} />
+      <Stack.Screen name="accounts/transfer" options={{ title: "Transferir" }} />
       <Stack.Screen
         name="vehicle/new"
         options={{ presentation: "modal", title: "Novo veículo" }}
