@@ -13,6 +13,7 @@ export function useDashboard() {
     ready,
     applyRecurring,
     balances,
+    accounts,
   } = useAppData();
 
   const scrollY = useRef(new Animated.Value(0)).current;
@@ -86,6 +87,7 @@ export function useDashboard() {
     setPeriod,
     scrollY,
     filtered,
+    accounts,
     totals,
     savedAmount,
     upcoming,
