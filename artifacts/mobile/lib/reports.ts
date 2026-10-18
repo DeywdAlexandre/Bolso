@@ -139,7 +139,7 @@ export async function generateLoanReport(
       </head>
       <body>
         <div class="header">
-          <div class="logo">Bolso</div>
+          <div class="logo">Prisma</div>
           <div class="report-title">
             <h1>Extrato de Empréstimo</h1>
             <p>Gerado em ${formatDate(new Date().toISOString())}</p>
@@ -204,7 +204,7 @@ export async function generateLoanReport(
         </div>
 
         <div class="footer">
-          Este documento é um informativo gerado pelo aplicativo Bolso.<br/>
+          Este documento é um informativo gerado pelo aplicativo Prisma.<br/>
           Fim do extrato.
         </div>
       </body>

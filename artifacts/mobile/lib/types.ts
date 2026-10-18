@@ -80,13 +80,6 @@ export type Settings = {
   themeMode: ThemeMode;
   biometricsEnabled?: boolean;
   activeTabs?: TabName[];
-  googleCalendarLinked?: boolean;
-  googleSheetsLinked?: boolean;
-  lastSyncAt?: string;
-  googleSheetsId?: string;
-  googleCalendarId?: string;
-  googleClientId?: string;
-  googleClientSecret?: string;
 };
 
 export type ChatRole = "user" | "assistant" | "system" | "tool";
@@ -239,7 +232,6 @@ export type Shift = {
   endTime: string;   // Ex: "19:00"
   isPaid?: boolean; // Se o plantão extra já foi recebido
   transactionId?: string; // Transação criada no extrato principal
-  googleEventId?: string; // Evento correspondente no Google Calendar
   color?: string; // Cor customizada do plantão
   createdAt: string;
   updatedAt?: string; // ISO

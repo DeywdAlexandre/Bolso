@@ -18,6 +18,7 @@ import { SafeAreaProvider } from "react-native-safe-area-context";
 import { Platform } from "react-native";
 
 import { AuthGuard } from "@/components/AuthGuard";
+import { migrateLegacyStorage } from "@/lib/storage";
 import { ChatSheet } from "@/components/ChatSheet";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { AppDataProvider } from "@/contexts/AppDataContext";
@@ -100,7 +101,12 @@ export default function RootLayout() {
     Inter_600SemiBold,
     Inter_700Bold,
   });
+  const [storageMigrated, setStorageMigrated] = useState(false);
   const [updateChecked, setUpdateChecked] = useState(__DEV__ || !Updates.isEnabled);
+
+  useEffect(() => {
+    migrateLegacyStorage().finally(() => setStorageMigrated(true));
+  }, []);
 
   useEffect(() => {
     if (updateChecked) return;
@@ -153,7 +159,7 @@ export default function RootLayout() {
     };
   }, [updateChecked]);
 
-  const ready = (fontsLoaded || fontError) && updateChecked;
+  const ready = (fontsLoaded || fontError) && updateChecked && storageMigrated;
 
   useEffect(() => {
     if (ready) {

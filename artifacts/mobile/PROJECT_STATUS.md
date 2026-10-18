@@ -42,7 +42,15 @@ O **Prisma** é um assistente financeiro pessoal "Offline-First" com inteligênc
 
 ---
 
-## 📈 Log de Atualizações (06/05/2026)
+## 📈 Log de Atualizações
+
+### Revisão geral (out/2026)
+- **Nome**: padronizado em **Prisma**. Chaves de storage `@bolso/*` → `@prisma/*`, com migração automática na primeira abertura (dados existentes preservados; chaves antigas mantidas como rede de segurança). Backups antigos (`app: "Bolso"`) continuam importáveis.
+- **Limpeza**: removida a integração com Google (`lib/google`, tela google-sync, campos de settings/tipos), componentes sem uso (`ChatFAB`, `SummaryCards`, `CategoryBreakdown`, `KeyboardAwareScrollViewCompat`) e `lib/test_stats.ts`.
+- **Correção**: histórico do chat podia começar com mensagem de ferramenta órfã após o corte de 50 mensagens, causando erro na API; agora sempre inicia em uma mensagem do usuário.
+- **Docs**: `replit.md`, `agente.md` e skills atualizados.
+
+### 06/05/2026
 
 - **v1.5.1 (Estabilização)**: Adicionados plugins nativos no `app.json` (Biometria, Notificações, Câmera, etc).
 - **Infra**: Funções nativas (AuthGuard e Notifications) temporariamente desativadas via JS para garantir estabilidade no primeiro build.
@@ -61,7 +69,7 @@ O **Prisma** é um assistente financeiro pessoal "Offline-First" com inteligênc
 
 ### 📡 Futuras Evoluções (Infra Pronta)
 - [ ] **Contatos**: Vincular empréstimos diretamente à agenda do celular.
-- [ ] **Calendário**: Sincronizar vencimentos com o Google/iCloud Calendar.
+- [ ] **Calendário**: Exportar vencimentos/plantões via calendário nativo do aparelho (a integração com Google foi removida para manter o app offline).
 - [ ] **Scanner**: Anexar fotos de recibos via câmera.
 - [ ] **Gamificação**: Medalhas por metas alcançadas.
 

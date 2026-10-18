@@ -2,9 +2,9 @@
 name: expo-ota-workflow
 description: Use para gerenciar atualizações Over-The-Air (OTA) e garantir que as mudanças no código cheguem aos usuários sem novo build nativo.
 ---
-# Expo OTA Workflow (Bolso)
+# Expo OTA Workflow (Prisma)
 
-O Bolso utiliza `expo-updates` para manter o app atualizado dinamicamente.
+O Prisma utiliza `expo-updates` para manter o app atualizado dinamicamente.
 
 ## Regras de Deploy
 1. **Branch Preview**: Use `eas update --branch preview` para testar mudanças antes de ir para produção.

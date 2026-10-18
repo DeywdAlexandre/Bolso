@@ -24,6 +24,14 @@ const ChatContext = createContext<ChatContextValue | null>(null);
 const MAX_HISTORY = 50;
 const MAX_TOOL_ROUNDS = 4;
 
+// O corte do histórico pode deixar uma resposta de ferramenta (ou a chamada
+// que a originou) no início, sem o par correspondente, e a API rejeita isso.
+// Começar sempre numa mensagem do usuário evita o problema.
+function trimToFirstUserMessage(list: ChatMessage[]): ChatMessage[] {
+  const first = list.findIndex((m) => m.role === "user");
+  return first === -1 ? [] : list.slice(first);
+}
+
 export function ChatProvider({ children }: { children: React.ReactNode }) {
   const { settings, apiKey } = useSettings();
   const data = useAppData();
@@ -39,7 +47,7 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
     (async () => {
       const stored = await loadJson<ChatMessage[]>(STORAGE_KEYS.chat, []);
       if (cancelled) return;
-      setMessages(stored);
+      setMessages(trimToFirstUserMessage(stored));
       setHydrated(true);
     })();
     return () => {
@@ -49,7 +57,7 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     if (!hydrated) return;
-    void saveJson(STORAGE_KEYS.chat, messages.slice(-MAX_HISTORY));
+    void saveJson(STORAGE_KEYS.chat, trimToFirstUserMessage(messages.slice(-MAX_HISTORY)));
   }, [messages, hydrated]);
 
   const open = useCallback(() => {
@@ -131,7 +139,7 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
         createdAt: 0,
       };
 
-      let conversation: ChatMessage[] = [systemMsg, ...messages, userMsg];
+      let conversation: ChatMessage[] = [systemMsg, ...trimToFirstUserMessage(messages.slice(-MAX_HISTORY)), userMsg];
 
       try {
         for (let round = 0; round < MAX_TOOL_ROUNDS; round++) {

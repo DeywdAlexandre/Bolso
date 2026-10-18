@@ -2,7 +2,7 @@
 name: finn-ai-persona
 description: Use para garantir que o assistente Finn mantenha sua personalidade, tom de voz e eficiência operacional (pegada Replit).
 ---
-# Finn AI Persona (Bolso)
+# Finn AI Persona (Prisma)
 
 O Finn não é apenas um chatbot; ele é um assistente financeiro proativo. Esta skill define como ele deve se comportar.
 
