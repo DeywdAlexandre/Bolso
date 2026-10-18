@@ -12,6 +12,7 @@ export function useDashboard() {
     userName,
     ready,
     applyRecurring,
+    balances,
   } = useAppData();
 
   const scrollY = useRef(new Animated.Value(0)).current;
@@ -43,20 +44,13 @@ export function useDashboard() {
       else expense += t.amount;
     }
 
-    let globalIncome = 0;
-    let globalExpense = 0;
-    for (const t of transactions) {
-      if (t.type === "income") globalIncome += t.amount;
-      else globalExpense += t.amount;
-    }
-
     return { 
       income, 
       expense, 
       balance: income - expense,
-      globalBalance: globalIncome - globalExpense 
+      globalBalance: balances.total,
     };
-  }, [filtered, transactions]);
+  }, [filtered, balances.total]);
 
   const savedAmount = useMemo(() => {
     return goals.reduce((acc, g) => acc + g.currentAmount, 0);

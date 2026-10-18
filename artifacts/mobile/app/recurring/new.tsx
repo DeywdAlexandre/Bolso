@@ -9,6 +9,7 @@ export default function NewRecurringScreen() {
   return (
     <RecurringForm
       submitLabel="Adicionar"
+      rememberLast
       onSubmit={async (values) => {
         await addRecurring(values);
         router.back();

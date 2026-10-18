@@ -14,8 +14,10 @@ export default function NewTransactionScreen() {
     <TransactionForm
       submitLabel="Adicionar"
       initial={{ type: initialType }}
+      rememberLast
       onSubmit={async (values) => {
-        await addTransaction(values);
+        // A conta foi escolhida no formulário (inclusive "Sem conta"): não aplica a conta padrão.
+        await addTransaction(values, { useDefaultAccount: false });
         router.back();
       }}
     />

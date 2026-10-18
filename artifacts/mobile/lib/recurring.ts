@@ -8,6 +8,7 @@ import type { Recurring, Transaction } from "./types";
 export function buildRecurringTransaction(
   r: Recurring,
   now: Date,
+  fallbackAccountId?: string,
 ): { tx: Transaction; appliedAt: string } | null {
   const month = now.getMonth();
   const year = now.getFullYear();
@@ -30,6 +31,8 @@ export function buildRecurringTransaction(
       categoryId: r.categoryId,
       description: r.description,
       date: targetDate.toISOString(),
+      accountId: r.accountId ?? fallbackAccountId,
+      paymentMethod: r.paymentMethod,
       recurringId: r.id,
       createdAt: nowIso,
       updatedAt: nowIso,

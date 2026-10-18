@@ -5,7 +5,8 @@ import { saveJson, STORAGE_KEYS, loadJson } from "@/lib/storage";
 import { DEFAULT_CATEGORIES } from "@/lib/categories";
 import type { Category, Recurring, Transaction } from "@/lib/types";
 
-export function useTransactionsState() {
+/** `defaultAccountId`: conta usada nos fixos aplicados automaticamente quando o fixo não tem conta. */
+export function useTransactionsState({ defaultAccountId }: { defaultAccountId?: string } = {}) {
   const [ready, setReady] = useState(false);
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [recurring, setRecurring] = useState<Recurring[]>([]);
@@ -123,7 +124,7 @@ export function useTransactionsState() {
       const r = prevRec.find((x) => x.id === id);
       if (!r) return prevRec;
 
-      const built = buildRecurringTransaction(r, new Date());
+      const built = buildRecurringTransaction(r, new Date(), defaultAccountId);
       if (!built) return prevRec;
       const { tx, appliedAt } = built;
       const nowIso = tx.createdAt;
@@ -140,7 +141,7 @@ export function useTransactionsState() {
       void saveJson(STORAGE_KEYS.recurring, nextRec);
       return nextRec;
     });
-  }, []);
+  }, [defaultAccountId]);
 
   const addCategory = useCallback(async (input: Omit<Category, "id">) => {
     const now = new Date().toISOString();

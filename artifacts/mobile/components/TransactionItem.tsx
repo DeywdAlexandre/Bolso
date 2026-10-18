@@ -2,7 +2,9 @@ import React from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 
 import { IconCircle } from "@/components/IconCircle";
+import { useAppData } from "@/contexts/AppDataContext";
 import { useColors } from "@/hooks/useColors";
+import { paymentMethodLabel } from "@/lib/accounts";
 import { formatCurrency, formatDate } from "@/lib/format";
 import type { Category, Transaction } from "@/lib/types";
 
@@ -15,6 +17,9 @@ type Props = {
 
 export function TransactionItem({ transaction, category, onPress, showDate = true }: Props) {
   const colors = useColors();
+  const { accounts } = useAppData();
+  const account = transaction.accountId ? accounts.find((a) => a.id === transaction.accountId) : undefined;
+  const method = paymentMethodLabel(transaction.paymentMethod);
   const isIncome = transaction.type === "income";
   const amountColor = isIncome ? colors.income : colors.foreground;
   const sign = isIncome ? "+" : "-";
@@ -39,9 +44,11 @@ export function TransactionItem({ transaction, category, onPress, showDate = tru
           {transaction.description || category?.name || "Transação"}
         </Text>
         <View style={styles.subRow}>
-          <Text style={[styles.subText, { color: colors.mutedForeground }]} numberOfLines={1}>
+          <Text style={[styles.subText, { color: colors.mutedForeground }]} numberOfLines={2}>
             {category?.name ?? "—"}
             {showDate ? ` · ${formatDate(transaction.date)}` : ""}
+            {account ? ` · ${account.name}` : ""}
+            {method ? ` · ${method}` : ""}
           </Text>
           {transaction.recurringId ? (
             <View style={[styles.badge, { backgroundColor: colors.muted }]}>

@@ -50,6 +50,10 @@ O **Prisma** é um assistente financeiro pessoal "Offline-First" com inteligênc
 - **Correção**: histórico do chat podia começar com mensagem de ferramenta órfã após o corte de 50 mensagens, causando erro na API; agora sempre inicia em uma mensagem do usuário.
 - **Docs**: `replit.md`, `agente.md` e skills atualizados.
 
+### Contas e carteira — etapa 1 (out/2026)
+- Cadastro de contas (Configurações), saldo por conta na tela inicial, campos Conta e Forma de pagamento nos lançamentos e fixos (pré-selecionados com a última escolha), "Sem conta", conta padrão para lançamentos automáticos, filtro por conta no extrato, arquivar e corrigir saldo, contas no backup.
+- Próximas etapas: transferências entre contas, cartão de crédito por fatura (leitura da fatura pela IA, parcelas), ajuste de saldo como lançamento, Finn com contas, relatórios por conta/forma.
+
 ### Modelo de IA padrão (out/2026)
 - Padrão do OpenRouter agora é **Claude Haiku 5.5** (`anthropic/claude-haiku-5.5`, em `lib/models.ts`). Quem estava no padrão antigo (GPT-4o mini) é migrado na primeira abertura; escolhas do usuário (ex.: DeepSeek) são preservadas.
 - Erros do OpenRouter (modelo não encontrado, chave inválida, sem créditos, limite) agora aparecem em português no chat.

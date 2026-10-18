@@ -13,6 +13,7 @@ import { useAppData } from "@/contexts/AppDataContext";
 
 import { HomeHeader } from "@/components/home/HomeHeader";
 import { FinanceWidget } from "@/components/home/FinanceWidget";
+import { AccountsWidget } from "@/components/home/AccountsWidget";
 import { GoalsWidget } from "@/components/home/GoalsWidget";
 import { VehiclesWidget } from "@/components/home/VehiclesWidget";
 import { LoansWidget } from "@/components/home/LoansWidget";
@@ -37,6 +38,7 @@ export default function HomeScreen() {
     goals,
     shifts,
     shiftRules,
+    balances,
   } = useAppData();
 
   const [showValue, setShowValue] = useState(true);
@@ -53,11 +55,8 @@ export default function HomeScreen() {
   const activeTabs = settings.activeTabs || ["index", "finance", "vehicles", "shifts"];
 
   // 2. Cálculos consolidados para o Cabeçalho e Widgets
-  // Saldo geral acumulado das transações
-  const globalBalance = transactions.reduce(
-    (acc, tx) => acc + (tx.type === "income" ? tx.amount : -tx.amount),
-    0
-  );
+  // Saldo geral: soma das contas (+ "Sem conta"); sem contas cadastradas, o acumulado de sempre
+  const globalBalance = balances.total;
 
   // Total acumulado nas metas
   const goalsTotal = goals.reduce((acc, g) => acc + (g.currentAmount || 0), 0);
@@ -125,6 +124,9 @@ export default function HomeScreen() {
               showValue={showValue}
             />
           )}
+
+          {/* Widget Contas e carteira */}
+          {activeTabs.includes("finance") && <AccountsWidget balances={balances} showValue={showValue} />}
 
           {/* Widget Metas */}
           {activeTabs.includes("goals") && (

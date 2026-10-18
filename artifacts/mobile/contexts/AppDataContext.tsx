@@ -1,7 +1,9 @@
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 import { Platform } from "react-native";
 
+import { computeBalances, initialBalanceFor, preselectedAccountId, type BalanceSummary } from "@/lib/accounts";
 import { BACKUP_VERSION, parseBackup } from "@/lib/backup";
+import { useSettings } from "@/contexts/SettingsContext";
 import { maybeAutoSnapshot, saveSnapshot } from "@/lib/snapshots";
 import { saveJson, STORAGE_KEYS, loadJson } from "@/lib/storage";
 import { DEFAULT_CATEGORIES } from "@/lib/categories";
@@ -12,6 +14,7 @@ import {
   scheduleRecurringReminder 
 } from "@/lib/notifications";
 import type {
+  Account,
   Category,
   Fueling,
   OilChange,
@@ -30,6 +33,7 @@ import type {
 } from "@/lib/types";
 
 // Importação dos hooks de domínio
+import { useAccountsState, type NewAccountInput } from "@/hooks/state/useAccountsState";
 import { useTransactionsState } from "@/hooks/state/useTransactionsState";
 import { useVehiclesState } from "@/hooks/state/useVehiclesState";
 import { useLoansState } from "@/hooks/state/useLoansState";
@@ -55,8 +59,22 @@ type AppDataContextValue = {
   shifts: Shift[];
   shiftRules: ShiftRule[];
   shiftTemplates: ShiftTemplate[];
-  
-  addTransaction: (input: Omit<Transaction, "id" | "createdAt">) => Promise<Transaction>;
+  accounts: Account[];
+  /** Saldos por conta, "Sem conta" e total (sem contas, é o saldo acumulado de sempre). */
+  balances: BalanceSummary;
+
+  addAccount: (input: NewAccountInput) => Promise<Account>;
+  updateAccount: (id: string, patch: Partial<Omit<Account, "id" | "createdAt">>) => Promise<void>;
+  /** Faz a conta mostrar exatamente `desired` hoje. */
+  correctAccountBalance: (id: string, desired: number) => Promise<void>;
+  /**
+   * Cria um lançamento. Sem `accountId`, usa a conta padrão (lançamentos automáticos);
+   * formulários manuais passam `useDefaultAccount: false` para respeitar "Sem conta".
+   */
+  addTransaction: (
+    input: Omit<Transaction, "id" | "createdAt">,
+    opts?: { useDefaultAccount?: boolean },
+  ) => Promise<Transaction>;
   addTransactionRaw: (tx: Transaction) => Promise<void>;
   updateTransaction: (id: string, patch: Partial<Transaction>) => Promise<void>;
   removeTransaction: (id: string) => Promise<void>;
@@ -128,6 +146,7 @@ type BackupPayload = {
   shifts?: Shift[];
   shiftRules?: ShiftRule[];
   shiftTemplates?: ShiftTemplate[];
+  accounts?: Account[];
   userName?: string;
 };
 
@@ -138,16 +157,32 @@ export function AppDataProvider({ children }: { children: React.ReactNode }) {
   const [userName, setUserNameState] = useState("");
 
   // Inicialização dos hooks específicos por domínio
-  const txState = useTransactionsState();
+  const { settings } = useSettings();
+  const accountsState = useAccountsState();
+  // Conta usada nos lançamentos automáticos; ignora conta arquivada/inexistente.
+  const defaultAccountId = preselectedAccountId(accountsState.accounts, undefined, settings.defaultAccountId);
+
+  const txState = useTransactionsState({ defaultAccountId });
+
+  const addTransaction = useCallback(
+    (input: Omit<Transaction, "id" | "createdAt">, opts?: { useDefaultAccount?: boolean }) => {
+      const useDefault = opts?.useDefaultAccount !== false;
+      return txState.addTransaction(
+        useDefault && input.accountId === undefined ? { ...input, accountId: defaultAccountId } : input,
+      );
+    },
+    [txState.addTransaction, defaultAccountId],
+  );
+
   const vehState = useVehiclesState({
-    addTransaction: txState.addTransaction,
+    addTransaction,
     removeTransaction: txState.removeTransaction,
   });
   const loanState = useLoansState({
     removeTransaction: txState.removeTransaction,
   });
   const goalState = useGoalsState({
-    addTransaction: txState.addTransaction,
+    addTransaction,
   });
   const shiftState = useShiftsState();
 
@@ -172,6 +207,7 @@ export function AppDataProvider({ children }: { children: React.ReactNode }) {
     loanState.ready && 
     goalState.ready && 
     shiftState.ready && 
+    accountsState.ready && 
     userNameReady;
 
   // Lógica central de agendamento de notificações
@@ -243,6 +279,7 @@ export function AppDataProvider({ children }: { children: React.ReactNode }) {
   const resetAll = useCallback(async () => {
     await Promise.all([
       txState.clearState(),
+      accountsState.clearState(),
       vehState.clearState(),
       loanState.clearState(),
       goalState.clearState(),
@@ -250,7 +287,7 @@ export function AppDataProvider({ children }: { children: React.ReactNode }) {
       saveJson(STORAGE_KEYS.userName, ""),
     ]);
     setUserNameState("");
-  }, [txState.clearState, vehState.clearState, loanState.clearState, goalState.clearState, shiftState.clearState]);
+  }, [accountsState.clearState, txState.clearState, vehState.clearState, loanState.clearState, goalState.clearState, shiftState.clearState]);
 
   const exportData = useCallback(async () => {
     const payload = {
@@ -274,6 +311,7 @@ export function AppDataProvider({ children }: { children: React.ReactNode }) {
         shifts: shiftState.shifts,
         shiftRules: shiftState.shiftRules,
         shiftTemplates: shiftState.shiftTemplates,
+        accounts: accountsState.accounts,
       }
     };
     return JSON.stringify(payload);
@@ -282,7 +320,7 @@ export function AppDataProvider({ children }: { children: React.ReactNode }) {
     vehState.vehicles, vehState.fuelings, vehState.oilChanges, vehState.vehicleExpenses,
     loanState.loanContacts, loanState.loans, loanState.loanPayments,
     goalState.goals, goalState.goalDeposits, userName,
-    shiftState.shifts, shiftState.shiftRules, shiftState.shiftTemplates
+    shiftState.shifts, shiftState.shiftRules, shiftState.shiftTemplates, accountsState.accounts
   ]);
 
   // Cópia local automática semanal (as 3 mais recentes ficam em AsyncStorage).
@@ -328,6 +366,7 @@ export function AppDataProvider({ children }: { children: React.ReactNode }) {
           shiftRules: p.shiftRules,
           shiftTemplates: p.shiftTemplates,
         }),
+        accountsState.importState({ accounts: p.accounts }),
         saveJson(STORAGE_KEYS.userName, p.userName || ""),
       ]);
       setUserNameState(p.userName || "");
@@ -335,7 +374,23 @@ export function AppDataProvider({ children }: { children: React.ReactNode }) {
       console.error("Erro ao importar backup:", err);
       throw err;
     }
-  }, [exportData, txState.importState, vehState.importState, loanState.importState, goalState.importState, shiftState.importState]);
+  }, [exportData, accountsState.importState, txState.importState, vehState.importState, loanState.importState, goalState.importState, shiftState.importState]);
+
+  const balances = useMemo(
+    () => computeBalances(accountsState.accounts, txState.transactions),
+    [accountsState.accounts, txState.transactions],
+  );
+
+  const correctAccountBalance = useCallback(
+    async (id: string, desired: number) => {
+      const account = accountsState.accounts.find((a) => a.id === id);
+      if (!account) return;
+      await accountsState.updateAccount(id, {
+        initialBalance: initialBalanceFor(account, txState.transactions, desired),
+      });
+    },
+    [accountsState.accounts, accountsState.updateAccount, txState.transactions],
+  );
 
   const value = useMemo<AppDataContextValue>(
     () => ({
@@ -346,7 +401,12 @@ export function AppDataProvider({ children }: { children: React.ReactNode }) {
       transactions: txState.transactions,
       recurring: txState.recurring,
       categories: txState.categories,
-      addTransaction: txState.addTransaction,
+      addTransaction,
+      accounts: accountsState.accounts,
+      balances,
+      addAccount: accountsState.addAccount,
+      updateAccount: accountsState.updateAccount,
+      correctAccountBalance,
       addTransactionRaw: txState.addTransactionRaw,
       updateTransaction: txState.updateTransaction,
       removeTransaction: txState.removeTransaction,
@@ -414,7 +474,8 @@ export function AppDataProvider({ children }: { children: React.ReactNode }) {
     }),
     [
       ready, userName, setUserName,
-      txState, vehState, loanState, goalState, shiftState,
+      txState, vehState, loanState, goalState, shiftState, accountsState,
+      addTransaction, balances, correctAccountBalance,
       resetAll, exportData, importData
     ]
   );

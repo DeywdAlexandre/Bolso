@@ -21,6 +21,13 @@ describe("buildRecurringTransaction", () => {
     expect(again).toBeNull();
   });
 
+  it("leva conta e forma de pagamento; sem conta usa a padrão", () => {
+    const withAcc = buildRecurringTransaction({ ...rec, accountId: "nubank", paymentMethod: "pix" }, new Date(2026, 2, 5, 10))!;
+    expect(withAcc.tx).toMatchObject({ accountId: "nubank", paymentMethod: "pix" });
+    expect(buildRecurringTransaction(rec, new Date(2026, 2, 5, 10), "carteira")!.tx.accountId).toBe("carteira");
+    expect(buildRecurringTransaction(rec, new Date(2026, 2, 5, 10))!.tx.accountId).toBeUndefined();
+  });
+
   it("aplica novamente no mês seguinte", () => {
     const again = buildRecurringTransaction({ ...rec, lastApplied: new Date(2026, 2, 31, 12).toISOString() }, new Date(2026, 3, 2, 10));
     expect(again).not.toBeNull();

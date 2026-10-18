@@ -10,6 +10,24 @@ export type Category = {
   updatedAt?: string; // ISO
 };
 
+export type AccountKind = "bank" | "wallet" | "savings";
+
+export type PaymentMethod = "pix" | "debit" | "cash" | "boleto" | "transfer" | "other";
+
+/** Banco, carteira (dinheiro) ou poupança. O saldo é `initialBalance` + lançamentos da conta desde `balanceDate`. */
+export type Account = {
+  id: string;
+  name: string;
+  kind: AccountKind;
+  color: string;
+  /** Saldo na data `balanceDate` (YYYY-MM-DD). Lançamentos anteriores já estão embutidos nele. */
+  initialBalance: number;
+  balanceDate: string;
+  archived?: boolean;
+  createdAt: string;
+  updatedAt?: string; // ISO
+};
+
 export type Transaction = {
   id: string;
   type: TransactionType;
@@ -17,6 +35,9 @@ export type Transaction = {
   categoryId: string;
   description: string;
   date: string;
+  /** Conta de onde saiu / para onde entrou. Ausente = "Sem conta". */
+  accountId?: string;
+  paymentMethod?: PaymentMethod;
   recurringId?: string;
   createdAt: string;
   updatedAt?: string; // ISO
@@ -30,6 +51,8 @@ export type Recurring = {
   description: string;
   dayOfMonth: number;
   active: boolean;
+  accountId?: string;
+  paymentMethod?: PaymentMethod;
   isSubscription?: boolean;
   lastApplied?: string;
   createdAt: string;
@@ -79,6 +102,11 @@ export type Settings = {
   currency: string;
   themeMode: ThemeMode;
   biometricsEnabled?: boolean;
+  /** Conta usada em lançamentos automáticos (fixos, empréstimos, veículos...) quando nenhuma é informada. */
+  defaultAccountId?: string;
+  /** Últimos valores escolhidos no formulário de lançamento (vêm pré-selecionados). */
+  lastAccountId?: string;
+  lastPaymentMethod?: PaymentMethod;
   activeTabs?: TabName[];
 };
 

@@ -7,11 +7,15 @@ import { EmptyState } from "@/components/EmptyState";
 import { PeriodSelector, type Period } from "@/components/PeriodSelector";
 import { TransactionItem } from "@/components/TransactionItem";
 import { useAppData } from "@/contexts/AppDataContext";
+import { AccountChip } from "@/components/accounts/AccountChip";
 import { useColors } from "@/hooks/useColors";
 
 export default function HistoryScreen() {
   const colors = useColors();
-  const { transactions, categories, ready } = useAppData();
+  const { transactions, categories, accounts, ready } = useAppData();
+  const activeAccounts = accounts.filter((a) => !a.archived);
+  // "all" | "none" (sem conta) | id da conta
+  const [accountFilter, setAccountFilter] = useState<string>("all");
 
   const now = new Date();
   const [period, setPeriod] = useState<Period>({
@@ -22,6 +26,8 @@ export default function HistoryScreen() {
 
   const filtered = useMemo(() => {
     return transactions.filter((t) => {
+      if (accountFilter === "none" && t.accountId) return false;
+      if (accountFilter !== "all" && accountFilter !== "none" && t.accountId !== accountFilter) return false;
       const d = new Date(t.date);
       if (period.mode === "month") {
         return d.getMonth() === period.month && d.getFullYear() === period.year;
@@ -35,7 +41,7 @@ export default function HistoryScreen() {
       }
       return true;
     });
-  }, [transactions, period]);
+  }, [transactions, period, accountFilter]);
 
   const sorted = useMemo(() => {
     return [...filtered].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
@@ -47,6 +53,21 @@ export default function HistoryScreen() {
       
       <View style={[styles.filterBar, { backgroundColor: colors.card, borderBottomWidth: 1, borderBottomColor: colors.border }]}>
         <PeriodSelector period={period} onChange={setPeriod} enableRange />
+        {activeAccounts.length > 0 && (
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.accountFilter}>
+            <AccountChip label="Todas as contas" active={accountFilter === "all"} onPress={() => setAccountFilter("all")} />
+            {activeAccounts.map((a) => (
+              <AccountChip
+                key={a.id}
+                label={a.name}
+                color={a.color}
+                active={accountFilter === a.id}
+                onPress={() => setAccountFilter(a.id)}
+              />
+            ))}
+            <AccountChip label="Sem conta" active={accountFilter === "none"} onPress={() => setAccountFilter("none")} />
+          </ScrollView>
+        )}
       </View>
 
       <ScrollView
@@ -102,6 +123,7 @@ const styles = StyleSheet.create({
   scroll: {
     padding: 20,
   },
+  accountFilter: { gap: 8, paddingTop: 12 },
   listCard: {
     borderRadius: 20,
     borderWidth: 1,

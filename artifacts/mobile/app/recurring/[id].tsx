@@ -32,6 +32,8 @@ export default function EditRecurringScreen() {
         description: r.description,
         dayOfMonth: r.dayOfMonth,
         active: r.active,
+        accountId: r.accountId,
+        paymentMethod: r.paymentMethod,
       }}
       onSubmit={async (values) => {
         await updateRecurring(r.id, values);
