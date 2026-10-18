@@ -52,7 +52,12 @@ O **Prisma** é um assistente financeiro pessoal "Offline-First" com inteligênc
 
 ### Contas e carteira — etapa 1 (out/2026)
 - Cadastro de contas (Configurações), saldo por conta na tela inicial, campos Conta e Forma de pagamento nos lançamentos e fixos (pré-selecionados com a última escolha), "Sem conta", conta padrão para lançamentos automáticos, filtro por conta no extrato, arquivar e corrigir saldo, contas no backup.
-- Próximas etapas: transferências entre contas, cartão de crédito por fatura (leitura da fatura pela IA, parcelas), ajuste de saldo como lançamento, Finn com contas, relatórios por conta/forma.
+- **Finn com contas**: `list_accounts`, conta/forma em lançamentos e fixos, `transfer_between_accounts`, parcelas em `add_transaction` e `get_card_invoice`.
+- **Relatórios**: "Gastos por origem" (por conta ou forma de pagamento) em Finanças.
+- **Transferências** entre contas (não são gasto nem entrada), com linha no extrato.
+- **Cartão de crédito por fatura**: fechamento/vencimento/limite, compras parceladas, parcelas faltantes, pagar fatura (transferência banco → cartão), cartão fora do "dinheiro total".
+- **Importar fatura com IA**: PDF/imagem → JSON → conciliação sem duplicar, estornos, parcelas k/n e faltantes, com revisão antes de gravar. Testado com a API simulada; falta validar com o modelo real e faturas reais de cada banco.
+- Pendências: ajuste de saldo como lançamento (hoje "corrigir saldo" recalcula o saldo inicial), cartão com limite compartilhado entre vários cartões, categorização mais fina nas faturas importadas.
 
 ### Modelo de IA padrão (out/2026)
 - Padrão do OpenRouter agora é **Claude Haiku 5.5** (`anthropic/claude-haiku-5.5`, em `lib/models.ts`). Quem estava no padrão antigo (GPT-4o mini) é migrado na primeira abertura; escolhas do usuário (ex.: DeepSeek) são preservadas.
