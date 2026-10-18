@@ -80,6 +80,7 @@ function RootLayoutNav() {
       <Stack.Screen name="accounts/[id]" options={{ title: "Conta" }} />
       <Stack.Screen name="accounts/transfer" options={{ title: "Transferir" }} />
       <Stack.Screen name="cards/[id]" options={{ title: "Cartão" }} />
+      <Stack.Screen name="cards/import" options={{ title: "Importar fatura" }} />
       <Stack.Screen
         name="vehicle/new"
         options={{ presentation: "modal", title: "Novo veículo" }}
