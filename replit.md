@@ -52,6 +52,8 @@ artifacts/mobile/
 - **Lançamento e fixo** têm `accountId` e `paymentMethod` opcionais (Pix, débito, dinheiro, boleto, transferência, outro). O formulário (`AccountMethodFields`) vem com a última conta/forma usada; tocar no chip escolhido desmarca ("Sem conta"). Os campos só aparecem se houver conta.
 - **"Sem conta"**: lançamentos sem conta feitos depois que as contas passaram a existir entram nesse grupo (e no total); o histórico anterior não conta (já está nos saldos informados). Sem contas cadastradas, o saldo geral é o acumulado de sempre. Total = soma das contas + "Sem conta".
 - **Conta padrão** (`settings.defaultAccountId`): usada em lançamentos automáticos (fixos efetivados, abastecimento, empréstimo, meta, plantão). Formulários manuais passam `useDefaultAccount: false` e respeitam "Sem conta".
+- **Finn**: `list_accounts` (saldos por conta, "Sem conta", total) e `account`/`paymentMethod` em `add_transaction`, `add_recurring` e `list_transactions`. Sem conta informada usa a padrão e responde `accountName`; conta/forma inválida devolve erro com as opções.
+- **Relatórios**: Finanças tem "Gastos por origem" (`AccountBreakdown`, `lib/breakdown.ts`): gastos/entradas do período por conta ou por forma de pagamento, com participação.
 - **Arquivar** em vez de excluir (o saldo deixa de contar no total); corrigir saldo recalcula o saldo inicial. Contas entram no backup. Cartão de crédito (fatura) e a leitura de faturas pela IA são as próximas etapas; "Crédito" ainda não é uma forma de pagamento.
 
 ## Consumo (km/L) — regras (`lib/fuelSegments.ts`, testadas)

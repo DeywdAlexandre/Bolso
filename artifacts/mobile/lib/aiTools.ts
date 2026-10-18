@@ -1,4 +1,6 @@
+import type { BalanceSummary } from "./accounts";
 import type {
+  Account,
   Category,
   Fueling,
   Goal,
@@ -26,6 +28,9 @@ export { SYSTEM_PROMPT } from "./ai/systemPrompt";
 
 /** Dados e ações do app que as ferramentas da IA podem usar. */
 export type ToolDeps = {
+  accounts: Account[];
+  balances: BalanceSummary;
+  defaultAccountId?: string;
   transactions: Transaction[];
   categories: Category[];
   recurring: Recurring[];
@@ -65,6 +70,9 @@ export function buildToolHandlers(deps: ToolDeps) {
     addTransaction: deps.addTransactionRaw,
     removeTransaction: deps.removeTransaction,
     addRecurring: deps.addRecurring,
+    accounts: deps.accounts,
+    balances: deps.balances,
+    defaultAccountId: deps.defaultAccountId,
   });
 
   const loanHandlers = buildLoanHandlers({

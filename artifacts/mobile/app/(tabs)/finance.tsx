@@ -15,6 +15,7 @@ import { useColors } from "@/hooks/useColors";
 import { useDashboard } from "@/hooks/useDashboard";
 
 import { DashboardHeader } from "@/components/dashboard/DashboardHeader";
+import { AccountBreakdown } from "@/components/dashboard/AccountBreakdown";
 import { DashboardSummaryCards } from "@/components/dashboard/DashboardSummaryCards";
 import { UpcomingCommitments } from "@/components/dashboard/UpcomingCommitments";
 import { RecentTransactions } from "@/components/dashboard/RecentTransactions";
@@ -31,6 +32,8 @@ export default function FinanceScreen() {
     setPeriod,
     scrollY,
     totals,
+    filtered,
+    accounts,
     savedAmount,
     upcoming,
     recent,
@@ -69,6 +72,8 @@ export default function FinanceScreen() {
         scrollEventThrottle={16}
       >
         <DashboardSummaryCards totals={totals} savedAmount={savedAmount} />
+
+        <AccountBreakdown transactions={filtered} accounts={accounts} />
 
         <UpcomingCommitments upcoming={upcoming} onApply={applyRecurring} />
 
