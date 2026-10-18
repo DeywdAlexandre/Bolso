@@ -50,6 +50,10 @@ O **Prisma** é um assistente financeiro pessoal "Offline-First" com inteligênc
 - **Correção**: histórico do chat podia começar com mensagem de ferramenta órfã após o corte de 50 mensagens, causando erro na API; agora sempre inicia em uma mensagem do usuário.
 - **Docs**: `replit.md`, `agente.md` e skills atualizados.
 
+### Modelo de IA padrão (out/2026)
+- Padrão do OpenRouter agora é **Claude Haiku 5.5** (`anthropic/claude-haiku-5.5`, em `lib/models.ts`). Quem estava no padrão antigo (GPT-4o mini) é migrado na primeira abertura; escolhas do usuário (ex.: DeepSeek) são preservadas.
+- Erros do OpenRouter (modelo não encontrado, chave inválida, sem créditos, limite) agora aparecem em português no chat.
+
 ### Consumo (km/L) e instalação do PWA (out/2026)
 - **km/L**: novo motor `lib/fuelSegments.ts`. Antes só usava Reserva se houvesse menos de 2 Cheios (e ignorava as Reservas com 2+ Cheios); agora Cheio→Cheio e Reserva→Reserva coexistem sem contar o mesmo trecho duas vezes. Parciais e abastecimentos do meio somam ao trecho. 18 testes cobrindo reserva, parcial, cheio, mistura, ordem e dados ruins.
 - **Tela do veículo**: nova seção "Trechos de consumo" com cada trecho medido e o trecho em andamento.

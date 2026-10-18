@@ -19,7 +19,7 @@ App mobile (Expo / React Native) em português brasileiro, offline-first, para c
 - **Plantões**: regras de escala, geração de turnos, templates e calendário.
 - **Finn (IA)**: bolinha/hub de chat com tool calling (OpenRouter), multi-round (até 4 rodadas), ditado por voz e briefing matinal.
 - **Segurança e dados**: bloqueio biométrico (`AuthGuard`, só em build nativo), ocultação de saldo, backup/restauração em JSON validada (`lib/backup.ts`, zod), cópia automática semanal local (`lib/snapshots.ts`, 3 mais recentes, também antes de cada importação) e notificações locais de vencimento.
-- **Configurações**: chave OpenRouter, modelo (GPT-4o mini padrão, DeepSeek V3), tema, abas visíveis e reset de dados.
+- **Configurações**: chave OpenRouter, modelo (Claude Haiku 5.5 padrão — `anthropic/claude-haiku-5.5`, GPT-4o mini, DeepSeek V3; lista em `lib/models.ts`), tema, abas visíveis e reset de dados.
 - A integração com Google (Sheets/Calendar) foi removida para manter o app 100% offline.
 
 ## Estrutura

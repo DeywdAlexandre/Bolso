@@ -1,6 +1,6 @@
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
 
-import { DEFAULT_MODEL } from "@/lib/openrouter";
+import { DEFAULT_MODEL, migrateModel } from "@/lib/models";
 import { deleteSecureItem, getSecureItem, SECURE_KEYS, setSecureItem } from "@/lib/secureStorage";
 import { loadJson, saveJson, STORAGE_KEYS } from "@/lib/storage";
 import type { Settings, TabName } from "@/lib/types";
@@ -40,7 +40,9 @@ export function SettingsProvider({ children }: { children: React.ReactNode }) {
         getSecureItem(SECURE_KEYS.openrouterKey),
       ]);
       if (cancelled) return;
-      setSettings({ ...DEFAULT_SETTINGS, ...s });
+      const merged = { ...DEFAULT_SETTINGS, ...s, model: migrateModel(s?.model) };
+      if (merged.model !== s?.model) void saveJson(STORAGE_KEYS.settings, merged);
+      setSettings(merged);
       setApiKeyState(k);
       setReady(true);
     })();
