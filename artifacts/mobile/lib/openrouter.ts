@@ -83,7 +83,6 @@ export async function chatCompletion(params: {
       headers: {
         "Content-Type": "application/json",
         Authorization: `Bearer ${apiKey}`,
-        "HTTP-Referer": "https://replit.com/",
         "X-Title": "Prisma",
       },
       body: JSON.stringify(body),

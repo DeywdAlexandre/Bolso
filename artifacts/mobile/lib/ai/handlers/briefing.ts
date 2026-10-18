@@ -1,4 +1,5 @@
 import type { Shift, Recurring, Loan, Goal } from "../../types";
+import { toIsoDay } from "../../format";
 
 export function buildBriefingHandlers(deps: {
   shifts: Shift[];
@@ -9,7 +10,7 @@ export function buildBriefingHandlers(deps: {
   return {
     get_morning_briefing: async () => {
       const now = new Date();
-      const todayStr = now.toISOString().split("T")[0]; // YYYY-MM-DD
+      const todayStr = toIsoDay(now); // YYYY-MM-DD
       const currentDay = now.getDate();
       const currentMonth = now.getMonth();
       const currentYear = now.getFullYear();

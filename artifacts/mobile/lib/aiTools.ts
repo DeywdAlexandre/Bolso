@@ -1,5 +1,19 @@
-import type { Category, Recurring, Transaction } from "./types";
-import { AI_TOOLS } from "./ai/toolDefinitions";
+import type {
+  Category,
+  Fueling,
+  Goal,
+  GoalDeposit,
+  Loan,
+  LoanContact,
+  LoanPayment,
+  OilChange,
+  Recurring,
+  Shift,
+  ShiftRule,
+  Transaction,
+  Vehicle,
+  VehicleExpense,
+} from "./types";
 import { buildTransactionHandlers } from "./ai/handlers/transaction";
 import { buildLoanHandlers } from "./ai/handlers/loan";
 import { buildVehicleHandlers } from "./ai/handlers/vehicle";
@@ -9,51 +23,46 @@ import { buildBriefingHandlers } from "./ai/handlers/briefing";
 
 export { AI_TOOLS } from "./ai/toolDefinitions";
 export { SYSTEM_PROMPT } from "./ai/systemPrompt";
-export type {
-  AddTransactionArgs,
-  ListTransactionsArgs,
-  SummaryArgs,
-  AddRecurringArgs,
-  DeleteTransactionArgs,
-  AddVehicleExpenseArgs,
-  ToolHandlers,
-} from "./ai/toolTypes";
 
-export function buildToolHandlers(deps: {
+/** Dados e ações do app que as ferramentas da IA podem usar. */
+export type ToolDeps = {
   transactions: Transaction[];
   categories: Category[];
   recurring: Recurring[];
-  addTransaction: (t: Transaction) => Promise<void>;
   addTransactionRaw: (t: Transaction) => Promise<void>;
+  /** Cria a transação gerando id/createdAt e devolve o registro criado. */
+  addTransaction: (t: Omit<Transaction, "id" | "createdAt">) => Promise<Transaction>;
   removeTransaction: (id: string) => Promise<void>;
   addRecurring: (r: Recurring) => Promise<void>;
-  loanContacts: any[];
-  loans: any[];
-  loanPayments: any[];
-  addLoanContact: (c: any) => Promise<any>;
-  addLoan: (l: any) => Promise<any>;
-  addLoanPayment: (p: any) => Promise<any>;
-  vehicles: any[];
-  fuelings: any[];
-  oilChanges: any[];
-  addFueling: (f: any) => Promise<any>;
-  addOilChange: (o: any) => Promise<any>;
-  goals: any[];
-  goalDeposits: any[];
-  addGoalDeposit: (d: any) => Promise<any>;
-  vehicleExpenses: any[];
-  addVehicleExpense: (e: any) => Promise<any>;
-  shifts: any[];
-  shiftRules: any[];
-  addShift: (s: any) => Promise<any>;
-  updateShift: (id: string, patch: any) => Promise<void>;
-  addShiftRule: (r: any) => Promise<any>;
+  loanContacts: LoanContact[];
+  loans: Loan[];
+  loanPayments: LoanPayment[];
+  addLoanContact: (c: Omit<LoanContact, "id" | "createdAt">) => Promise<LoanContact>;
+  addLoan: (l: Omit<Loan, "id" | "createdAt" | "status">) => Promise<Loan>;
+  addLoanPayment: (p: Omit<LoanPayment, "id" | "createdAt">) => Promise<LoanPayment>;
+  vehicles: Vehicle[];
+  fuelings: Fueling[];
+  oilChanges: OilChange[];
+  addFueling: (f: Omit<Fueling, "id" | "createdAt">) => Promise<Fueling>;
+  addOilChange: (o: Omit<OilChange, "id" | "createdAt">) => Promise<OilChange>;
+  goals: Goal[];
+  goalDeposits: GoalDeposit[];
+  addGoalDeposit: (d: Omit<GoalDeposit, "id" | "createdAt" | "type"> & { createTransaction?: boolean }) => Promise<GoalDeposit>;
+  vehicleExpenses: VehicleExpense[];
+  addVehicleExpense: (e: Omit<VehicleExpense, "id" | "createdAt">) => Promise<VehicleExpense>;
+  shifts: Shift[];
+  shiftRules: ShiftRule[];
+  addShift: (s: Omit<Shift, "id" | "createdAt">) => Promise<Shift>;
+  updateShift: (id: string, patch: Partial<Shift>) => Promise<void>;
+  addShiftRule: (r: Omit<ShiftRule, "id" | "createdAt">) => Promise<ShiftRule>;
   generateShiftsFromRule: (ruleId: string, limitMonths?: number) => Promise<void>;
-}): any {
+};
+
+export function buildToolHandlers(deps: ToolDeps) {
   const transactionHandlers = buildTransactionHandlers({
     transactions: deps.transactions,
     categories: deps.categories,
-    addTransaction: deps.addTransaction,
+    addTransaction: deps.addTransactionRaw,
     removeTransaction: deps.removeTransaction,
     addRecurring: deps.addRecurring,
   });

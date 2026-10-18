@@ -4,7 +4,7 @@ import { LinearGradient } from "expo-linear-gradient";
 import { Feather, Ionicons } from "@expo/vector-icons";
 import { router } from "expo-router";
 import { useColors } from "@/hooks/useColors";
-import { formatCurrency, formatDate, fromIsoDay } from "@/lib/format";
+import { formatCurrency, formatDate, fromIsoDay, toIsoDay } from "@/lib/format";
 import type { Shift, ShiftRule } from "@/lib/types";
 
 interface ShiftsWidgetProps {
@@ -25,7 +25,7 @@ export function ShiftsWidget({ shifts, shiftRules, showValue }: ShiftsWidgetProp
   const now = new Date();
   const currentMonthIdx = now.getMonth();
   const currentYear = now.getFullYear();
-  const todayStr = now.toISOString().split("T")[0]; // YYYY-MM-DD
+  const todayStr = toIsoDay(now); // YYYY-MM-DD
 
   // 1. Gerar dias do mês atual para o mini calendário
   const daysInMonth = React.useMemo(() => {
@@ -136,7 +136,7 @@ export function ShiftsWidget({ shifts, shiftRules, showValue }: ShiftsWidgetProp
               return <View key={`empty-${idx}`} style={styles.calendarCell} />;
             }
 
-            const dateStr = day.toISOString().split("T")[0];
+            const dateStr = toIsoDay(day);
             const isToday = todayStr === dateStr;
 
             // Filtrar plantões deste dia específico

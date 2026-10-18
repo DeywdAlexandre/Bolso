@@ -1,13 +1,13 @@
-import type { Shift, ShiftRule } from "../../types";
+import type { Shift, ShiftRule, Transaction } from "../../types";
 
 export function buildShiftHandlers(deps: {
   shifts: Shift[];
   shiftRules: ShiftRule[];
-  addShift: (s: any) => Promise<any>;
-  updateShift: (id: string, patch: any) => Promise<void>;
-  addShiftRule: (r: any) => Promise<any>;
+  addShift: (s: Omit<Shift, "id" | "createdAt">) => Promise<Shift>;
+  updateShift: (id: string, patch: Partial<Shift>) => Promise<void>;
+  addShiftRule: (r: Omit<ShiftRule, "id" | "createdAt">) => Promise<ShiftRule>;
   generateShiftsFromRule: (ruleId: string, limitMonths?: number) => Promise<void>;
-  addTransaction: (t: any) => Promise<any>;
+  addTransaction: (t: Omit<Transaction, "id" | "createdAt">) => Promise<Transaction>;
   removeTransaction: (id: string) => Promise<void>;
 }) {
   return {

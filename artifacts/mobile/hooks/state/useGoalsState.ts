@@ -1,3 +1,4 @@
+import { computeGoalYields } from "@/lib/goalYield";
 import { useState, useEffect, useCallback } from "react";
 import { genId } from "@/lib/format";
 import { saveJson, STORAGE_KEYS, loadJson } from "@/lib/storage";
@@ -29,41 +30,9 @@ export function useGoalsState({ addTransaction }: UseGoalsStateProps) {
   // Lógica automática de rendimento mensal das metas (juros)
   useEffect(() => {
     if (!ready) return;
-    const now = new Date();
-    const today = now.toISOString();
+    const { goals: updatedGoals, deposits: newDeposits } = computeGoalYields(goals, new Date());
 
-    let changed = false;
-    const newDeposits: GoalDeposit[] = [];
-    const updatedGoals = goals.map((g) => {
-      if (!g.isYielding || g.currentAmount <= 0) return g;
-      
-      const lastAccrual = g.lastInterestAccrual ? new Date(g.lastInterestAccrual) : new Date(g.createdAt);
-      const diffMs = now.getTime() - lastAccrual.getTime();
-      const diffDays = diffMs / (1000 * 60 * 60 * 24);
-
-      if (diffDays >= 30) {
-        const yieldAmount = g.currentAmount * (g.estimatedYield / 100);
-        newDeposits.push({
-          id: "gd_" + genId(),
-          goalId: g.id,
-          amount: yieldAmount,
-          type: "yield",
-          date: today,
-          createdAt: today,
-          updatedAt: today,
-        });
-        changed = true;
-        return { 
-          ...g, 
-          currentAmount: g.currentAmount + yieldAmount,
-          lastInterestAccrual: today,
-          updatedAt: today,
-        };
-      }
-      return g;
-    });
-
-    if (changed) {
+    if (newDeposits.length > 0) {
       const allGD = [...newDeposits, ...goalDeposits];
       setGoalDeposits(allGD);
       setGoals(updatedGoals);

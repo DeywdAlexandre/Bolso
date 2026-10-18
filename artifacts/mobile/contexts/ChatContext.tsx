@@ -1,8 +1,8 @@
-import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
+import React, { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 
 import { useAppData } from "@/contexts/AppDataContext";
 import { useSettings } from "@/contexts/SettingsContext";
-import { AI_TOOLS, buildToolHandlers, SYSTEM_PROMPT } from "@/lib/aiTools";
+import { AI_TOOLS, buildToolHandlers, SYSTEM_PROMPT, type ToolDeps } from "@/lib/aiTools";
 import { genId } from "@/lib/format";
 import { chatCompletion, OpenRouterError } from "@/lib/openrouter";
 import { loadJson, saveJson, STORAGE_KEYS } from "@/lib/storage";
@@ -24,6 +24,42 @@ const ChatContext = createContext<ChatContextValue | null>(null);
 const MAX_HISTORY = 50;
 const MAX_TOOL_ROUNDS = 4;
 
+type AppData = ReturnType<typeof useAppData>;
+
+function toToolDeps(data: AppData): ToolDeps {
+  return {
+    transactions: data.transactions,
+    categories: data.categories,
+    recurring: data.recurring,
+    addTransactionRaw: data.addTransactionRaw,
+    addTransaction: data.addTransaction,
+    removeTransaction: data.removeTransaction,
+    addRecurring: data.addRecurringRaw,
+    loanContacts: data.loanContacts,
+    loans: data.loans,
+    loanPayments: data.loanPayments,
+    addLoanContact: data.addLoanContact,
+    addLoan: data.addLoan,
+    addLoanPayment: data.addLoanPayment,
+    vehicles: data.vehicles,
+    fuelings: data.fuelings,
+    oilChanges: data.oilChanges,
+    addFueling: data.addFueling,
+    addOilChange: data.addOilChange,
+    goals: data.goals,
+    goalDeposits: data.goalDeposits,
+    addGoalDeposit: data.addGoalDeposit,
+    vehicleExpenses: data.vehicleExpenses,
+    addVehicleExpense: data.addVehicleExpense,
+    shifts: data.shifts,
+    shiftRules: data.shiftRules,
+    addShift: data.addShift,
+    updateShift: data.updateShift,
+    addShiftRule: data.addShiftRule,
+    generateShiftsFromRule: data.generateShiftsFromRule,
+  };
+}
+
 // O corte do histórico pode deixar uma resposta de ferramenta (ou a chamada
 // que a originou) no início, sem o par correspondente, e a API rejeita isso.
 // Começar sempre numa mensagem do usuário evita o problema.
@@ -35,6 +71,10 @@ function trimToFirstUserMessage(list: ChatMessage[]): ChatMessage[] {
 export function ChatProvider({ children }: { children: React.ReactNode }) {
   const { settings, apiKey } = useSettings();
   const data = useAppData();
+  // Sempre o estado mais recente, para que cada rodada de ferramentas enxergue
+  // o que a rodada anterior acabou de gravar.
+  const dataRef = useRef(data);
+  dataRef.current = data;
 
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [sending, setSending] = useState(false);
@@ -100,38 +140,6 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
 
       setSending(true);
 
-      const handlers = buildToolHandlers({
-        transactions: data.transactions,
-        categories: data.categories,
-        recurring: data.recurring,
-        addTransaction: data.addTransactionRaw,
-        addTransactionRaw: data.addTransactionRaw,
-        removeTransaction: data.removeTransaction,
-        addRecurring: data.addRecurringRaw,
-        loanContacts: data.loanContacts,
-        loans: data.loans,
-        loanPayments: data.loanPayments,
-        addLoanContact: data.addLoanContact,
-        addLoan: data.addLoan,
-        addLoanPayment: data.addLoanPayment,
-        vehicles: data.vehicles,
-        fuelings: data.fuelings,
-        oilChanges: data.oilChanges,
-        addFueling: data.addFueling,
-        addOilChange: data.addOilChange,
-        goals: data.goals,
-        goalDeposits: data.goalDeposits,
-        addGoalDeposit: data.addGoalDeposit,
-        vehicleExpenses: data.vehicleExpenses,
-        addVehicleExpense: data.addVehicleExpense,
-        shifts: data.shifts,
-        shiftRules: data.shiftRules,
-        addShift: data.addShift,
-        updateShift: data.updateShift,
-        addShiftRule: data.addShiftRule,
-        generateShiftsFromRule: data.generateShiftsFromRule,
-      });
-
       const systemMsg: ChatMessage = {
         id: "system",
         role: "system",
@@ -174,6 +182,7 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
           setMessages((prev) => [...prev, assistantToolMsg]);
           conversation = [...conversation, assistantToolMsg];
 
+          const handlers = buildToolHandlers(toToolDeps(dataRef.current));
           const toolResults: ChatMessage[] = [];
           for (const call of toolCalls) {
             const out = await runTool(call, handlers);
@@ -220,7 +229,7 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
         setSending(false);
       }
     },
-    [apiKey, data, isOpen, messages, sending, settings.model],
+    [apiKey, isOpen, messages, sending, settings.model],
   );
 
   const value = useMemo<ChatContextValue>(

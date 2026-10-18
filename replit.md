@@ -18,7 +18,7 @@ App mobile (Expo / React Native) em português brasileiro, offline-first, para c
 - **Empréstimos**: contatos, dívidas, parcelas fixas/variáveis, agenda de vencimentos e extratos em PDF.
 - **Plantões**: regras de escala, geração de turnos, templates e calendário.
 - **Finn (IA)**: bolinha/hub de chat com tool calling (OpenRouter), multi-round (até 4 rodadas), ditado por voz e briefing matinal.
-- **Segurança e dados**: bloqueio biométrico, ocultação de saldo, backup/restauração em JSON, notificações locais de vencimento.
+- **Segurança e dados**: bloqueio biométrico (`AuthGuard`, só em build nativo), ocultação de saldo, backup/restauração em JSON validada (`lib/backup.ts`, zod), cópia automática semanal local (`lib/snapshots.ts`, 3 mais recentes, também antes de cada importação) e notificações locais de vencimento.
 - **Configurações**: chave OpenRouter, modelo (GPT-4o mini padrão, DeepSeek V3), tema, abas visíveis e reset de dados.
 - A integração com Google (Sheets/Calendar) foi removida para manter o app 100% offline.
 
@@ -45,6 +45,13 @@ artifacts/mobile/
     vehicleStats.ts reports.ts notifications.ts format.ts types.ts categories.ts
   constants/colors.ts            Paleta
 ```
+
+## Qualidade
+
+- `pnpm run typecheck` e `pnpm test` (Vitest, em `artifacts/mobile`) rodam no CI (`.github/workflows/ci.yml`).
+- Regras puras testadas: `vehicleStats`, `goalYield` (rendimento mensal composto), `recurring`, `backup`, `format`/`money`.
+- Datas: sempre locais via `toIsoDay` / `localDayStart` (nunca `toISOString().split("T")`, que vira o dia seguinte após 21h no Brasil). Valores monetários: arredondar com `roundMoney`/`sumMoney` (`lib/money.ts`).
+- Handlers da IA (`lib/ai/handlers`) são tipados com `lib/types`; `ChatContext` os reconstrói a cada rodada com o estado mais recente.
 
 ## Notas técnicas
 

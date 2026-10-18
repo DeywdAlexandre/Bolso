@@ -23,7 +23,7 @@ import { ModelPicker } from "@/components/settings/ModelPicker";
 
 export default function SettingsScreen() {
   const colors = useColors();
-  const { handleExport, handleImport } = useBackup();
+  const { handleExport, handleImport, handleRestoreSnapshot } = useBackup();
   const {
     settings,
     nameDraft,
@@ -270,6 +270,25 @@ export default function SettingsScreen() {
               <Text style={[styles.rowTitle, { color: colors.foreground }]}>Importar Backup</Text>
               <Text style={[styles.rowSub, { color: colors.mutedForeground }]}>
                 Restaurar dados de um arquivo salvo
+              </Text>
+            </View>
+            <Feather name="chevron-right" size={20} color={colors.mutedForeground} />
+          </Pressable>
+
+          <Pressable
+            onPress={handleRestoreSnapshot}
+            style={({ pressed }) => [
+              styles.row,
+              { backgroundColor: colors.card, borderColor: colors.border, opacity: pressed ? 0.7 : 1 },
+            ]}
+          >
+            <View style={[styles.rowIcon, { backgroundColor: colors.primary + "15" }]}>
+              <Feather name="rotate-ccw" size={18} color={colors.primary} />
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={[styles.rowTitle, { color: colors.foreground }]}>Restaurar cópia automática</Text>
+              <Text style={[styles.rowSub, { color: colors.mutedForeground }]}>
+                O app guarda uma cópia semanal neste aparelho
               </Text>
             </View>
             <Feather name="chevron-right" size={20} color={colors.mutedForeground} />

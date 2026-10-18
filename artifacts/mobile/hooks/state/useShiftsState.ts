@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
-import { genId } from "@/lib/format";
+import { genId, localDayStart, toIsoDay } from "@/lib/format";
 import { saveJson, STORAGE_KEYS, loadJson } from "@/lib/storage";
 import type { Shift, ShiftRule, ShiftTemplate } from "@/lib/types";
 
@@ -118,10 +118,10 @@ export function useShiftsState() {
 
     if (rule.recurrenceType === "weekly") {
       const weekDays = rule.weekDays || [];
-      let current = new Date(rule.startDate);
+      let current = localDayStart(rule.startDate);
       while (current <= limitDate) {
         if (weekDays.includes(current.getDay())) {
-          const dateStr = current.toISOString().split("T")[0];
+          const dateStr = toIsoDay(current);
           newShifts.push({
             id: "sh_" + genId(),
             ruleId: rule.id,
@@ -143,9 +143,9 @@ export function useShiftsState() {
       const offHours = rule.offHours || 36;
       const cycleHours = workHours + offHours;
 
-      let current = new Date(rule.startDate);
+      let current = localDayStart(rule.startDate);
       while (current <= limitDate) {
-        const dateStr = current.toISOString().split("T")[0];
+        const dateStr = toIsoDay(current);
         newShifts.push({
           id: "sh_" + genId(),
           ruleId: rule.id,

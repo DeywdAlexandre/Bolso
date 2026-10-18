@@ -1,3 +1,4 @@
+import { buildRecurringTransaction } from "@/lib/recurring";
 import { useState, useEffect, useCallback } from "react";
 import { genId } from "@/lib/format";
 import { saveJson, STORAGE_KEYS, loadJson } from "@/lib/storage";
@@ -122,30 +123,10 @@ export function useTransactionsState() {
       const r = prevRec.find((x) => x.id === id);
       if (!r) return prevRec;
 
-      const now = new Date();
-      const month = now.getMonth();
-      const year = now.getFullYear();
-      const targetDay = Math.min(r.dayOfMonth, new Date(year, month + 1, 0).getDate());
-      const targetDate = new Date(year, month, targetDay, 12, 0, 0);
-
-      // Evita aplicar duas vezes no mesmo mês/ano
-      const lastApplied = r.lastApplied ? new Date(r.lastApplied) : null;
-      if (lastApplied && lastApplied.getMonth() === month && lastApplied.getFullYear() === year) {
-        return prevRec;
-      }
-
-      const nowIso = new Date().toISOString();
-      const tx: Transaction = {
-        id: genId(),
-        type: r.type,
-        amount: r.amount,
-        categoryId: r.categoryId,
-        description: r.description,
-        date: targetDate.toISOString(),
-        recurringId: r.id,
-        createdAt: nowIso,
-        updatedAt: nowIso,
-      };
+      const built = buildRecurringTransaction(r, new Date());
+      if (!built) return prevRec;
+      const { tx, appliedAt } = built;
+      const nowIso = tx.createdAt;
 
       setTransactions((prevTx) => {
         const nextTx = [tx, ...prevTx];
@@ -154,7 +135,7 @@ export function useTransactionsState() {
       });
 
       const nextRec = prevRec.map((item) =>
-        item.id === id ? { ...item, lastApplied: targetDate.toISOString(), updatedAt: nowIso } : item
+        item.id === id ? { ...item, lastApplied: appliedAt, updatedAt: nowIso } : item
       );
       void saveJson(STORAGE_KEYS.recurring, nextRec);
       return nextRec;

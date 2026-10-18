@@ -17,6 +17,7 @@ import { GoalsWidget } from "@/components/home/GoalsWidget";
 import { VehiclesWidget } from "@/components/home/VehiclesWidget";
 import { LoansWidget } from "@/components/home/LoansWidget";
 import { ShiftsWidget } from "@/components/home/ShiftsWidget";
+import { toIsoDay } from "@/lib/format";
 
 export default function HomeScreen() {
   const colors = useColors();
@@ -65,7 +66,7 @@ export default function HomeScreen() {
   const patrimony = globalBalance + goalsTotal;
 
   // Transações do mês atual
-  const todayStr = new Date().toISOString().split("T")[0]; // YYYY-MM-DD
+  const todayStr = toIsoDay(new Date()); // YYYY-MM-DD
   const [currYear, currMonth] = todayStr.split("-").map(Number);
 
   const monthTransactions = transactions.filter((tx) => {

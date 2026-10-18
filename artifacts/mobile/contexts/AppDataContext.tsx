@@ -1,6 +1,8 @@
-import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
+import React, { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 import { Platform } from "react-native";
 
+import { BACKUP_VERSION, parseBackup } from "@/lib/backup";
+import { maybeAutoSnapshot, saveSnapshot } from "@/lib/snapshots";
 import { saveJson, STORAGE_KEYS, loadJson } from "@/lib/storage";
 import { DEFAULT_CATEGORIES } from "@/lib/categories";
 import { 
@@ -109,7 +111,25 @@ type AppDataContextValue = {
   importData: (json: string) => Promise<void>;
 };
 
-const DATA_VERSION = 1;
+
+type BackupPayload = {
+  transactions?: Transaction[];
+  recurring?: Recurring[];
+  categories?: Category[];
+  vehicles?: Vehicle[];
+  fuelings?: Fueling[];
+  oilChanges?: OilChange[];
+  vehicleExpenses?: VehicleExpense[];
+  loanContacts?: LoanContact[];
+  loans?: Loan[];
+  loanPayments?: LoanPayment[];
+  goals?: Goal[];
+  goalDeposits?: GoalDeposit[];
+  shifts?: Shift[];
+  shiftRules?: ShiftRule[];
+  shiftTemplates?: ShiftTemplate[];
+  userName?: string;
+};
 
 const AppDataContext = createContext<AppDataContextValue | null>(null);
 
@@ -234,7 +254,7 @@ export function AppDataProvider({ children }: { children: React.ReactNode }) {
 
   const exportData = useCallback(async () => {
     const payload = {
-      version: DATA_VERSION,
+      version: BACKUP_VERSION,
       generated_at: new Date().toISOString(),
       app: "Prisma",
       payload: {
@@ -265,19 +285,22 @@ export function AppDataProvider({ children }: { children: React.ReactNode }) {
     shiftState.shifts, shiftState.shiftRules, shiftState.shiftTemplates
   ]);
 
+  // Cópia local automática semanal (as 3 mais recentes ficam em AsyncStorage).
+  const exportDataRef = useRef(exportData);
+  exportDataRef.current = exportData;
+  useEffect(() => {
+    if (!ready) return;
+    void maybeAutoSnapshot(() => exportDataRef.current()).catch(() => {});
+  }, [ready]);
+
   const importData = useCallback(async (json: string) => {
     try {
-      const data = JSON.parse(json);
-      // "Bolso" era o nome anterior do app; backups antigos continuam válidos.
-      if ((data.app !== "Bolso" && data.app !== "Prisma") || !data.version || !data.payload) {
-        throw new Error("Arquivo de backup inválido.");
-      }
+      // Valida tudo antes de gravar e guarda uma cópia do estado atual para desfazer.
+      const data = parseBackup(json);
+      await saveSnapshot(await exportData(), "before_import");
 
-      if (data.version > DATA_VERSION) {
-        throw new Error(`Backup de uma versão superior (${data.version}). Por favor, atualize o app.`);
-      }
-
-      const p = data.payload;
+      // Os registros já foram validados (ids e listas); os demais campos seguem os tipos do app.
+      const p = data.payload as unknown as BackupPayload;
       
       await Promise.all([
         txState.importState({
@@ -312,7 +335,7 @@ export function AppDataProvider({ children }: { children: React.ReactNode }) {
       console.error("Erro ao importar backup:", err);
       throw err;
     }
-  }, [txState.importState, vehState.importState, loanState.importState, goalState.importState, shiftState.importState]);
+  }, [exportData, txState.importState, vehState.importState, loanState.importState, goalState.importState, shiftState.importState]);
 
   const value = useMemo<AppDataContextValue>(
     () => ({
