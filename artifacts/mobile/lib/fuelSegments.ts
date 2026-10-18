@@ -24,6 +24,8 @@ export type FuelSegment = {
   endId: string;
   startOdometer: number;
   endOdometer: number;
+  startDate: string;
+  endDate: string;
   km: number;
   liters: number;
   cost: number;
@@ -73,6 +75,8 @@ function buildCandidates(fuelings: Fueling[], status: "full" | "reserve"): FuelS
       endId: end.id,
       startOdometer: start.odometer,
       endOdometer: end.odometer,
+      startDate: start.date,
+      endDate: end.date,
       km,
       liters,
       cost,
@@ -115,4 +119,44 @@ export function computeFuelSegments(allFuelings: Fueling[]): FuelSegment[] {
 
 function better(a: { km: number; count: number }, b: { km: number; count: number }): boolean {
   return a.km > b.km || (a.km === b.km && a.count > b.count);
+}
+
+/** Trecho ainda sem ponto final: o que já rodou/abasteceu desde o último Cheio ou Reserva. */
+export type OpenSegment = {
+  method: "full" | "reserve";
+  startDate: string;
+  startOdometer: number;
+  /** km rodados desde o ponto inicial (até o maior odômetro registrado). */
+  kmSoFar: number;
+  /** Litros que já entrariam no trecho se ele fechasse agora. */
+  litersSoFar: number;
+};
+
+/**
+ * Trecho em andamento a partir do último abastecimento Cheio/Reserva. Fecha quando
+ * chegar o próximo abastecimento do mesmo tipo. Null se ainda não há nenhum ponto de medição.
+ */
+export function computeOpenSegment(allFuelings: Fueling[]): OpenSegment | null {
+  const fuelings = sortFuelings(allFuelings);
+  let anchor = -1;
+  fuelings.forEach((f, i) => {
+    if (f.tankStatus === "full" || f.tankStatus === "reserve") anchor = i;
+  });
+  if (anchor === -1) return null;
+
+  const start = fuelings[anchor]!;
+  const method = start.tankStatus as "full" | "reserve";
+  // Cheio: os litros do próprio Cheio inicial não contam. Reserva: contam.
+  const from = method === "full" ? anchor + 1 : anchor;
+  let litersSoFar = 0;
+  for (let j = from; j < fuelings.length; j++) litersSoFar += fuelings[j]!.liters;
+  const lastOdometer = fuelings[fuelings.length - 1]!.odometer;
+
+  return {
+    method,
+    startDate: start.date,
+    startOdometer: start.odometer,
+    kmSoFar: Math.max(0, lastOdometer - start.odometer),
+    litersSoFar,
+  };
 }

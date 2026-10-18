@@ -15,6 +15,7 @@ import { useVehicle } from "@/hooks/useVehicle";
 import { VehicleHeaderCard } from "@/components/vehicle/VehicleHeaderCard";
 import { VehicleActionsRow } from "@/components/vehicle/VehicleActionsRow";
 import { VehicleStatsGrid } from "@/components/vehicle/VehicleStatsGrid";
+import { VehicleSegmentsCard } from "@/components/vehicle/VehicleSegmentsCard";
 import { VehicleOilCard } from "@/components/vehicle/VehicleOilCard";
 import { VehicleHistoryList } from "@/components/vehicle/VehicleHistoryList";
 import { ExtraExpenseModal } from "@/components/vehicle/ExtraExpenseModal";
@@ -87,6 +88,8 @@ export default function VehicleDetailScreen() {
         />
 
         <VehicleStatsGrid stats={stats} />
+
+        <VehicleSegmentsCard segments={stats.segments} openSegment={stats.openSegment} />
 
         <VehicleOilCard stats={stats} />
 
