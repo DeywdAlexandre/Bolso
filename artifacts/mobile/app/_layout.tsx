@@ -195,8 +195,10 @@ function AppContent() {
                     <link rel="icon" type="image/png" href="assets/images/icon.png" />
                   </Head>
                   <StatusBar style="auto" />
-                   <RootLayoutNav />
-                   <ChatSheet />
+                  <AuthGuard>
+                    <RootLayoutNav />
+                    <ChatSheet />
+                  </AuthGuard>
                 </ChatProvider>
               </AppDataProvider>
             </KeyboardProvider>
