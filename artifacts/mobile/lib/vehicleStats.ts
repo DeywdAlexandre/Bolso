@@ -1,4 +1,4 @@
-import { computeFuelSegments, sortFuelings, type FuelSegment } from "./fuelSegments";
+import { computeFuelSegments, computeOpenSegment, sortFuelings, type FuelSegment, type OpenSegment } from "./fuelSegments";
 import type { Fueling, OilChange, Vehicle, VehicleExpense } from "./types";
 
 export type VehicleStats = {
@@ -21,6 +21,8 @@ export type VehicleStats = {
   oilStatus: "ok" | "soon" | "overdue" | "unknown";
   /** Trechos usados no cálculo do consumo, em ordem cronológica. */
   segments: FuelSegment[];
+  /** Trecho em andamento (ainda sem ponto final), se houver. */
+  openSegment: OpenSegment | null;
 };
 
 const SOON_THRESHOLD_KM = 500;
@@ -105,6 +107,7 @@ export function computeVehicleStats(
     kmRemainingOil,
     oilStatus,
     segments,
+    openSegment: computeOpenSegment(fuelings),
   };
 }
 

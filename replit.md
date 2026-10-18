@@ -52,6 +52,7 @@ O status do abastecimento diz como estava o tanque ao abastecer:
 - **Cheio→Cheio**: litros = parciais/reservas do meio + o abastecimento do Cheio final. Os litros do Cheio inicial não entram.
 - **Reserva→Reserva**: litros = abastecimento da Reserva inicial + o que foi abastecido no meio (parciais, cheios). Os litros da Reserva final não entram (viram o início do próximo trecho).
 - **Parcial**: nunca fecha uma medição; seus litros são somados ao trecho em andamento.
+- Na tela do veículo, `VehicleSegmentsCard` lista os trechos medidos (método, datas, km, litros, km/L, R$/km) e o **trecho em andamento** (`computeOpenSegment`: o que já rodou/abasteceu desde o último Cheio ou Reserva e quando ele fecha).
 - Os dois métodos coexistem; trechos que se sobrepõem não são contados duas vezes (fica o conjunto que mede mais km). A ordem é pelo odômetro (empate: data). Odômetro repetido/regressivo e trechos sem litros são ignorados.
 
 ## PWA (web)

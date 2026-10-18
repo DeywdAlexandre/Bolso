@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { computeFuelSegments } from "./fuelSegments";
+import { computeFuelSegments, computeOpenSegment } from "./fuelSegments";
 import { computeVehicleStats } from "./vehicleStats";
 import type { Fueling, TankStatus, Vehicle } from "./types";
 
@@ -174,5 +174,42 @@ describe("computeVehicleStats com reserva", () => {
     const other = f(1000, 99, "reserve", { vehicleId: "v2" });
     const s = computeVehicleStats(vehicle, [other, f(1000, 40, "reserve"), f(1400, 30, "reserve")], [], []);
     expect(s.totalLitersInSegments).toBe(40);
+  });
+});
+
+describe("Trecho em andamento", () => {
+  it("sem Cheio nem Reserva não há trecho aberto", () => {
+    expect(computeOpenSegment([])).toBeNull();
+    expect(computeOpenSegment([f(1000, 10, "partial")])).toBeNull();
+  });
+
+  it("parte da última Reserva, contando os litros dela e o que veio depois", () => {
+    const open = computeOpenSegment([
+      f(1000, 40, "reserve"),
+      f(1400, 30, "reserve"),
+      f(1600, 12, "partial"),
+    ]);
+    expect(open).toMatchObject({ method: "reserve", startOdometer: 1400, kmSoFar: 200, litersSoFar: 42 });
+  });
+
+  it("parte do último Cheio sem contar os litros dele", () => {
+    const open = computeOpenSegment([f(1000, 40, "full"), f(1200, 10, "partial")]);
+    expect(open).toMatchObject({ method: "full", startOdometer: 1000, kmSoFar: 200, litersSoFar: 10 });
+  });
+
+  it("logo após o ponto de medição ainda não rodou nada", () => {
+    expect(computeOpenSegment([f(1000, 40, "full")])).toMatchObject({ kmSoFar: 0, litersSoFar: 0 });
+  });
+
+  it("aparece em computeVehicleStats junto com os trechos medidos e as datas", () => {
+    const s = computeVehicleStats(
+      vehicle,
+      [f(1000, 40, "reserve"), f(1400, 30, "reserve"), f(1500, 10, "partial")],
+      [],
+      [],
+    );
+    expect(s.segments[0]).toMatchObject({ startOdometer: 1000, endOdometer: 1400 });
+    expect(s.segments[0]!.startDate).toBeTruthy();
+    expect(s.openSegment).toMatchObject({ method: "reserve", kmSoFar: 100, litersSoFar: 40 });
   });
 });
