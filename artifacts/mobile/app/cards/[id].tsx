@@ -165,6 +165,17 @@ export default function CardScreen() {
           <Text style={[styles.addText, { color: colors.primaryForeground }]}>Nova compra no cartão</Text>
         </Pressable>
 
+        <Pressable
+          onPress={() => router.push({ pathname: "/cards/import", params: { id: card.id } } as any)}
+          style={({ pressed }) => [
+            styles.add,
+            { backgroundColor: colors.card, borderWidth: 1, borderColor: colors.border, opacity: pressed ? 0.85 : 1 },
+          ]}
+        >
+          <Feather name="file-text" size={18} color={colors.foreground} />
+          <Text style={[styles.addText, { color: colors.foreground }]}>Importar fatura com IA</Text>
+        </Pressable>
+
         {summary.groups.length > 0 && (
           <View style={{ gap: 10 }}>
             <Text style={[styles.section, { color: colors.mutedForeground }]}>Parcelas faltantes</Text>

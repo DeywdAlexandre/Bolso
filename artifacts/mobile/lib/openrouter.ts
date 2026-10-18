@@ -49,6 +49,37 @@ function toApiMessages(messages: ChatMessage[]): OpenRouterMessage[] {
   });
 }
 
+/** POST em /chat/completions com cabeçalhos e tratamento de erros em português. */
+async function postChat(apiKey: string, body: Record<string, unknown>, model: string): Promise<Response> {
+  let response: Response;
+  try {
+    response = (await fetch("https://openrouter.ai/api/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${apiKey}`,
+        "X-Title": "Prisma",
+      },
+      body: JSON.stringify(body),
+    })) as unknown as Response;
+  } catch (err) {
+    throw new OpenRouterError(
+      err instanceof Error ? err.message : "Erro de rede ao contactar OpenRouter.",
+    );
+  }
+
+  if (!response.ok) {
+    let detail = "";
+    try {
+      detail = await response.text();
+    } catch {
+      // ignore
+    }
+    throw new OpenRouterError(describeOpenRouterError(response.status, model, detail), response.status);
+  }
+  return response;
+}
+
 export async function chatCompletion(params: {
   apiKey: string;
   model: string;
@@ -72,33 +103,7 @@ export async function chatCompletion(params: {
     body.tool_choice = "auto";
   }
 
-  let response: Response;
-  try {
-    response = (await fetch("https://openrouter.ai/api/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${apiKey}`,
-        "X-Title": "Prisma",
-      },
-      body: JSON.stringify(body),
-    })) as unknown as Response;
-  } catch (err) {
-    throw new OpenRouterError(
-      err instanceof Error ? err.message : "Erro de rede ao contactar OpenRouter.",
-    );
-  }
-
-  if (!response.ok) {
-    let detail = "";
-    try {
-      const text = await response.text();
-      detail = text;
-    } catch {
-      // ignore
-    }
-    throw new OpenRouterError(describeOpenRouterError(response.status, model, detail), response.status);
-  }
+  const response = await postChat(apiKey, body, model);
 
   const data = (await response.json()) as {
     choices?: {
@@ -129,4 +134,37 @@ export async function listModels(apiKey: string): Promise<{ id: string; name?: s
   } catch {
     return [];
   }
+}
+
+/**
+ * Pede ao modelo uma resposta em texto para uma mensagem com um arquivo anexo (PDF ou imagem).
+ * `dataUrl` é o arquivo em base64 (data:<mime>;base64,...).
+ */
+export async function completeWithFile(params: {
+  apiKey: string;
+  model: string;
+  prompt: string;
+  file: { dataUrl: string; mime: string; filename: string };
+  maxTokens?: number;
+}): Promise<string> {
+  const { apiKey, model, prompt, file, maxTokens = 8000 } = params;
+  if (!apiKey) throw new OpenRouterError("Chave da API do OpenRouter não configurada.");
+
+  const attachment =
+    file.mime === "application/pdf"
+      ? { type: "file", file: { filename: file.filename, file_data: file.dataUrl } }
+      : { type: "image_url", image_url: { url: file.dataUrl } };
+
+  const response = await postChat(
+    apiKey,
+    {
+      model,
+      temperature: 0,
+      max_tokens: maxTokens,
+      messages: [{ role: "user", content: [{ type: "text", text: prompt }, attachment] }],
+    },
+    model,
+  );
+  const data = (await response.json()) as { choices?: { message?: { content?: string | null } }[] };
+  return (data.choices?.[0]?.message?.content ?? "").toString();
 }
