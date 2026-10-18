@@ -1,15 +1,16 @@
+import type { Fueling, OilChange, Vehicle, VehicleExpense } from "../../types";
 import { computeVehicleStats, formatKmPerLiter, formatKm } from "../../vehicleStats";
 import type { AddVehicleExpenseArgs } from "../toolTypes";
 import type { TankStatus } from "../../types";
 
 export function buildVehicleHandlers(deps: {
-  vehicles: any[];
-  fuelings: any[];
-  oilChanges: any[];
-  vehicleExpenses: any[];
-  addFueling: (f: any) => Promise<any>;
-  addOilChange: (o: any) => Promise<any>;
-  addVehicleExpense: (e: any) => Promise<any>;
+  vehicles: Vehicle[];
+  fuelings: Fueling[];
+  oilChanges: OilChange[];
+  vehicleExpenses: VehicleExpense[];
+  addFueling: (f: Omit<Fueling, "id" | "createdAt">) => Promise<Fueling>;
+  addOilChange: (o: Omit<OilChange, "id" | "createdAt">) => Promise<OilChange>;
+  addVehicleExpense: (e: Omit<VehicleExpense, "id" | "createdAt">) => Promise<VehicleExpense>;
 }) {
   return {
     async listVehicles() {
@@ -39,8 +40,8 @@ export function buildVehicleHandlers(deps: {
 
       const fueling = await deps.addFueling({
         vehicleId: vehicle.id,
-        amount: args.amount,
         liters: args.liters,
+        pricePerLiter: args.liters > 0 ? args.amount / args.liters : 0,
         odometer: args.odometer,
         date: args.date || new Date().toISOString(),
         totalCost: args.amount,
@@ -68,7 +69,7 @@ export function buildVehicleHandlers(deps: {
         odometer: args.odometer,
         nextChangeKm: args.nextChangeOdometer,
         date: args.date || new Date().toISOString(),
-        description: "Troca via IA",
+        notes: "Troca via IA",
       });
 
       return { ok: true, oilChange };

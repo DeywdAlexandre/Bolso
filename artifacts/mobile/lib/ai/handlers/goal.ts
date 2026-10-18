@@ -1,7 +1,9 @@
+import type { Goal, GoalDeposit } from "../../types";
+
 export function buildGoalHandlers(deps: {
-  goals: any[];
-  goalDeposits: any[];
-  addGoalDeposit: (d: any) => Promise<any>;
+  goals: Goal[];
+  goalDeposits: GoalDeposit[];
+  addGoalDeposit: (d: Omit<GoalDeposit, "id" | "createdAt" | "type"> & { createTransaction?: boolean }) => Promise<GoalDeposit>;
 }) {
   return {
     async listGoals() {
@@ -10,10 +12,10 @@ export function buildGoalHandlers(deps: {
         const saved = deposits.reduce((s, d) => s + d.amount, 0);
         return {
           id: g.id,
-          title: g.title,
+          name: g.name,
           targetAmount: g.targetAmount,
           savedAmount: saved,
-          progress: (saved / g.targetAmount) * 100,
+          progress: g.targetAmount ? (saved / g.targetAmount) * 100 : null,
         };
       });
       return { goals: list };
@@ -21,7 +23,7 @@ export function buildGoalHandlers(deps: {
 
     async addGoalDeposit(args: { goalTitle: string; amount: number }) {
       const goal = deps.goals.find((g) =>
-        g.title.toLowerCase().includes(args.goalTitle.toLowerCase())
+        g.name.toLowerCase().includes(args.goalTitle.toLowerCase())
       );
       if (!goal) return { ok: false, error: "Meta não encontrada." };
 
@@ -29,9 +31,8 @@ export function buildGoalHandlers(deps: {
         goalId: goal.id,
         amount: args.amount,
         date: new Date().toISOString(),
-        description: "Depósito via IA",
       });
-      return { ok: true, goal: { title: goal.title }, deposit };
+      return { ok: true, goal: { name: goal.name }, deposit };
     },
   };
 }

@@ -1,14 +1,15 @@
+import type { Loan, LoanContact, LoanPayment, Transaction } from "../../types";
 import { genId } from "../../format";
 import { generateLoanReport as generatePDF } from "../../reports";
 
 export function buildLoanHandlers(deps: {
-  loanContacts: any[];
-  loans: any[];
-  loanPayments: any[];
-  addLoanContact: (c: any) => Promise<any>;
-  addLoan: (l: any) => Promise<any>;
-  addLoanPayment: (p: any) => Promise<any>;
-  addTransactionRaw: (t: any) => Promise<void>;
+  loanContacts: LoanContact[];
+  loans: Loan[];
+  loanPayments: LoanPayment[];
+  addLoanContact: (c: Omit<LoanContact, "id" | "createdAt">) => Promise<LoanContact>;
+  addLoan: (l: Omit<Loan, "id" | "createdAt" | "status">) => Promise<Loan>;
+  addLoanPayment: (p: Omit<LoanPayment, "id" | "createdAt">) => Promise<LoanPayment>;
+  addTransactionRaw: (t: Transaction) => Promise<void>;
 }) {
   return {
     async addLoanContact(args: { name: string }) {
@@ -110,18 +111,13 @@ export function buildLoanHandlers(deps: {
       const interestToPay = Math.min(args.amount, currentInterest);
       const principalToPay = Math.max(0, args.amount - interestToPay);
 
-      const payment = await deps.addLoanPayment({
-        loanId: loan.id,
-        amount: args.amount,
-        interestPaid: interestToPay,
-        principalPaid: principalToPay,
-        date: new Date().toISOString(),
-      });
+      const addToExtrat = args.addToExtrat !== false;
+      const transactionId = genId();
 
-      if (args.addToExtrat !== false) {
+      if (addToExtrat) {
         const isLend = loan.direction === "lend";
         await deps.addTransactionRaw({
-          id: genId(),
+          id: transactionId,
           type: isLend ? "income" : "expense",
           amount: args.amount,
           categoryId: isLend ? "cat_loan_income" : "cat_loan_expense",
@@ -130,6 +126,16 @@ export function buildLoanHandlers(deps: {
           createdAt: new Date().toISOString(),
         });
       }
+
+      const payment = await deps.addLoanPayment({
+        loanId: loan.id,
+        amount: args.amount,
+        interestPaid: interestToPay,
+        principalPaid: principalToPay,
+        date: new Date().toISOString(),
+        isMainExtratEntry: addToExtrat,
+        transactionId: addToExtrat ? transactionId : undefined,
+      });
 
       return { ok: true, payment };
     },
