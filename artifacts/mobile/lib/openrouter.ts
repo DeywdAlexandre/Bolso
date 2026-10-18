@@ -1,13 +1,9 @@
 import { fetch } from "expo/fetch";
 
+import { describeOpenRouterError } from "./models";
 import type { ChatMessage, ToolCall } from "./types";
 
-export const DEFAULT_MODEL = "openai/gpt-4o-mini";
-
-export const SUGGESTED_MODELS: { value: string; label: string; hint: string }[] = [
-  { value: "openai/gpt-4o-mini", label: "GPT-4o mini", hint: "Padrão · Rápido e inteligente" },
-  { value: "deepseek/deepseek-chat", label: "DeepSeek V3", hint: "Escolha · Ultra eficiente" },
-];
+export { DEFAULT_MODEL, SUGGESTED_MODELS } from "./models";
 
 type OpenRouterMessage = {
   role: "system" | "user" | "assistant" | "tool";
@@ -101,10 +97,7 @@ export async function chatCompletion(params: {
     } catch {
       // ignore
     }
-    throw new OpenRouterError(
-      `OpenRouter retornou ${response.status}. ${detail}`.trim(),
-      response.status,
-    );
+    throw new OpenRouterError(describeOpenRouterError(response.status, model, detail), response.status);
   }
 
   const data = (await response.json()) as {
