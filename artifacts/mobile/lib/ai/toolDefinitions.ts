@@ -193,11 +193,13 @@ export const AI_TOOLS: ToolDefinition[] = [
     type: "function",
     function: {
       name: "get_vehicle_stats",
-      description: "Retorna estatísticas de consumo (KM/L) e status de manutenção de um veículo.",
+      description:
+        "Retorna o consumo (KM/L médio), os trechos medidos de consumo (do mais recente ao mais antigo, com datas, km, litros e km/L), o melhor e o pior trecho, o trecho em andamento e o status de manutenção de um veículo.",
       parameters: {
         type: "object",
         properties: {
           vehicleName: { type: "string", description: "Nome ou placa do veículo" },
+          limit: { type: "number", description: "Quantos trechos recentes devolver (padrão 10)" },
         },
         required: ["vehicleName"],
       },

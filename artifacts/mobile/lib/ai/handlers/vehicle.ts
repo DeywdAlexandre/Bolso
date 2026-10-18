@@ -1,5 +1,6 @@
 import type { Fueling, OilChange, Vehicle, VehicleExpense } from "../../types";
-import { computeVehicleStats, formatKmPerLiter, formatKm } from "../../vehicleStats";
+import { computeVehicleStats } from "../../vehicleStats";
+import { buildVehicleStatsPayload } from "../vehiclePayload";
 import type { AddVehicleExpenseArgs } from "../toolTypes";
 import type { TankStatus } from "../../types";
 
@@ -75,7 +76,7 @@ export function buildVehicleHandlers(deps: {
       return { ok: true, oilChange };
     },
 
-    async getVehicleStats(args: { vehicleName: string }) {
+    async getVehicleStats(args: { vehicleName: string; limit?: number }) {
       const vehicle = deps.vehicles.find(
         (v) =>
           v.name.toLowerCase().includes(args.vehicleName.toLowerCase()) ||
@@ -84,16 +85,7 @@ export function buildVehicleHandlers(deps: {
       if (!vehicle) return { stats: null, error: "Veículo não encontrado." };
 
       const stats = computeVehicleStats(vehicle, deps.fuelings, deps.oilChanges, deps.vehicleExpenses);
-      return {
-        stats: {
-          vehicleName: vehicle.name,
-          avgKmL: stats.avgKmPerLiter ? formatKmPerLiter(stats.avgKmPerLiter) + " km/L" : "N/A",
-          lastOdometer: stats.lastOdometer ? formatKm(stats.lastOdometer) + " km" : "N/A",
-          oilStatus: stats.oilStatus,
-          kmRemainingOil: stats.kmRemainingOil ? formatKm(stats.kmRemainingOil) + " km" : "N/A",
-          avgCostPerKm: stats.avgCostPerKm ? "R$ " + stats.avgCostPerKm.toFixed(2) + " / km" : "N/A",
-        },
-      };
+      return { stats: buildVehicleStatsPayload(vehicle, stats, args.limit) };
     },
 
     async addVehicleExpense(args: AddVehicleExpenseArgs) {
