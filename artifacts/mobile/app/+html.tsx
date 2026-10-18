@@ -18,6 +18,7 @@ export default function HTML({ children }: { children: React.ReactNode }) {
 
         {/* Vincular manifesto do PWA para ícones e instalação */}
         <link rel="manifest" href="/manifest.json" />
+        <meta name="theme-color" content="#10b981" />
 
         {/* Configurações extras de compatibilidade iOS PWA */}
         <meta name="apple-mobile-web-app-capable" content="yes" />

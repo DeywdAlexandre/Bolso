@@ -50,6 +50,13 @@ O **Prisma** é um assistente financeiro pessoal "Offline-First" com inteligênc
 - **Correção**: histórico do chat podia começar com mensagem de ferramenta órfã após o corte de 50 mensagens, causando erro na API; agora sempre inicia em uma mensagem do usuário.
 - **Docs**: `replit.md`, `agente.md` e skills atualizados.
 
+### PWA: service worker e cache (out/2026)
+- Não existia service worker (só manifest): o app não abria offline e dependia do cache HTTP. Criado `public/sw.js` (HTML rede-primeiro com fallback offline, assets com hash cache-primeiro) e `lib/pwa.ts`.
+- Aviso "Nova versão disponível" (`UpdateBanner`) ao detectar deploy novo com o app aberto; remove cache de bundles antigos.
+- O template `app/+html.tsx` não era usado na saída `single`: tags do PWA agora em `public/index.html` (manifest, theme-color, ícone iOS 180 px).
+- Manifest com `id`, `scope`, atalhos e ícones maskable separados.
+- Verificado em Chromium: abre offline, aviso e atualização após deploy simulado, cache antigo removido.
+
 ### Melhorias de qualidade (out/2026)
 - **Testes**: Vitest + CI (typecheck e testes). Rendimento das metas agora credita todos os ciclos de 30 dias pendentes.
 - **IA (Finn)**: handlers tipados — corrigidos metas (`title`→`name`), abastecimento, troca de óleo, pagamento de empréstimo (vínculo com o extrato) e plantão recebido; dados atualizados a cada rodada de ferramentas.

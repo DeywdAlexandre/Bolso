@@ -46,6 +46,14 @@ artifacts/mobile/
   constants/colors.ts            Paleta
 ```
 
+## PWA (web)
+
+- **Template HTML**: a saída web é `single`, então `app/+html.tsx` **não** é usado. As tags do PWA (manifest, `theme-color`, metatags iOS, ícones) ficam em `artifacts/mobile/public/index.html`, que o Expo usa como template.
+- **Service worker** (`public/sw.js`, registrado em `lib/pwa.ts`, só em produção): HTML com rede primeiro e cópia offline (timeout 4 s); arquivos com hash (`/_expo/static`, `/assets`) com cache primeiro; ícones/manifest com stale-while-revalidate; domínios externos (OpenRouter) nunca passam pelo cache. Para invalidar tudo, aumente `VERSION` em `sw.js`.
+- **Nova versão**: `watchForNewVersion` compara os bundles do HTML do servidor com os que estão rodando (ao voltar ao app, ao reconectar e a cada 15 min) e o `UpdateBanner` oferece "Atualizar". O `sw.js` não muda a cada deploy: o que muda é o hash do bundle.
+- **Manifest**: `id`, `scope`, atalhos (Novo gasto, Plantões, Gastos fixos) e ícones `any`/`maskable` separados. Os atalhos e rotas profundas exigem que o host sirva `index.html` como fallback (SPA).
+- Para testar localmente: `npx expo export -p web --output-dir <dir>` e servir `<dir>` com fallback para `index.html` (o service worker só roda em HTTPS ou localhost).
+
 ## Qualidade
 
 - `pnpm run typecheck` e `pnpm test` (Vitest, em `artifacts/mobile`) rodam no CI (`.github/workflows/ci.yml`).

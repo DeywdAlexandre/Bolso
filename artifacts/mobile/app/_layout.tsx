@@ -7,7 +7,6 @@ import {
 } from "@expo-google-fonts/inter";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { Stack } from "expo-router";
-import Head from "expo-router/head";
 import * as SplashScreen from "expo-splash-screen";
 import { StatusBar } from "expo-status-bar";
 import * as Updates from "expo-updates";
@@ -18,7 +17,9 @@ import { SafeAreaProvider } from "react-native-safe-area-context";
 import { Platform } from "react-native";
 
 import { AuthGuard } from "@/components/AuthGuard";
+import { registerServiceWorker } from "@/lib/pwa";
 import { migrateLegacyStorage } from "@/lib/storage";
+import { UpdateBanner } from "@/components/UpdateBanner";
 import { ChatSheet } from "@/components/ChatSheet";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { AppDataProvider } from "@/contexts/AppDataContext";
@@ -105,6 +106,10 @@ export default function RootLayout() {
   const [updateChecked, setUpdateChecked] = useState(__DEV__ || !Updates.isEnabled);
 
   useEffect(() => {
+    registerServiceWorker();
+  }, []);
+
+  useEffect(() => {
     migrateLegacyStorage().finally(() => setStorageMigrated(true));
   }, []);
 
@@ -123,24 +128,6 @@ export default function RootLayout() {
 
     (async () => {
       try {
-        // No Web, tentamos detectar mudanças de service worker de forma mais agressiva
-        if (Platform.OS === "web" && "serviceWorker" in navigator) {
-          const registration = await navigator.serviceWorker.getRegistration();
-          if (registration) {
-            registration.addEventListener("updatefound", () => {
-              const newWorker = registration.installing;
-              if (newWorker) {
-                newWorker.addEventListener("statechange", () => {
-                  if (newWorker.state === "installed" && navigator.serviceWorker.controller) {
-                    // Nova versão instalada, recarrega para aplicar
-                    window.location.reload();
-                  }
-                });
-              }
-            });
-          }
-        }
-
         const result = await Updates.checkForUpdateAsync();
         if (result.isAvailable) {
           await Updates.fetchUpdateAsync();
@@ -187,17 +174,11 @@ function AppContent() {
             <KeyboardProvider>
               <AppDataProvider>
                 <ChatProvider>
-                  <Head>
-                    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
-                    <meta name="apple-mobile-web-app-capable" content="yes" />
-                    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
-                    <link rel="apple-touch-icon" href="assets/images/apple-icon.png" />
-                    <link rel="icon" type="image/png" href="assets/images/icon.png" />
-                  </Head>
                   <StatusBar style="auto" />
                   <AuthGuard>
                     <RootLayoutNav />
                     <ChatSheet />
+                    <UpdateBanner />
                   </AuthGuard>
                 </ChatProvider>
               </AppDataProvider>
