@@ -20,6 +20,7 @@ export const STORAGE_KEYS = {
   shiftRules: "@prisma/shiftrules/v1",
   shiftTemplates: "@prisma/shifttemplates/v1",
   snapshots: "@prisma/snapshots/v1",
+  installDismissedAt: "@prisma/install_dismissed_at/v1",
 } as const;
 
 export async function loadJson<T>(key: string, fallback: T): Promise<T> {

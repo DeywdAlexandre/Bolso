@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useState } from "react";
 import {
   Linking,
   Platform,
@@ -15,6 +15,8 @@ import { router, Stack } from "expo-router";
 import { useColors } from "@/hooks/useColors";
 import { useSettingsForm } from "@/hooks/useSettingsForm";
 import { useBackup } from "@/hooks/useBackup";
+import { useInstall } from "@/hooks/useInstall";
+import { InstallInstructions } from "@/components/pwa/InstallInstructions";
 
 import { SettingsSection } from "@/components/settings/SettingsSection";
 import { SettingsField } from "@/components/settings/SettingsField";
@@ -24,6 +26,8 @@ import { ModelPicker } from "@/components/settings/ModelPicker";
 export default function SettingsScreen() {
   const colors = useColors();
   const { handleExport, handleImport, handleRestoreSnapshot } = useBackup();
+  const { state: installState, install, canInstall } = useInstall();
+  const [showInstallSteps, setShowInstallSteps] = useState(false);
   const {
     settings,
     nameDraft,
@@ -216,6 +220,32 @@ export default function SettingsScreen() {
           ) : null}
         </SettingsSection>
 
+        {Platform.OS === "web" && canInstall && (
+          <SettingsSection title="Aplicativo">
+            <Pressable
+              onPress={async () => {
+                if (installState === "prompt") await install();
+                else setShowInstallSteps(true);
+              }}
+              style={({ pressed }) => [
+                styles.row,
+                { backgroundColor: colors.card, borderColor: colors.border, opacity: pressed ? 0.7 : 1 },
+              ]}
+            >
+              <View style={[styles.rowIcon, { backgroundColor: colors.primary + "15" }]}>
+                <Feather name="download" size={18} color={colors.primary} />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={[styles.rowTitle, { color: colors.foreground }]}>Instalar aplicativo</Text>
+                <Text style={[styles.rowSub, { color: colors.mutedForeground }]}>
+                  Abre em tela cheia e funciona sem internet
+                </Text>
+              </View>
+              <Feather name="chevron-right" size={20} color={colors.mutedForeground} />
+            </Pressable>
+          </SettingsSection>
+        )}
+
         <SettingsSection title="Dados">
           <Pressable
             onPress={() => router.push("/categories")}
@@ -323,6 +353,12 @@ export default function SettingsScreen() {
           </Text>
         </View>
       </ScrollView>
+
+      <InstallInstructions
+        visible={showInstallSteps}
+        state={installState}
+        onClose={() => setShowInstallSteps(false)}
+      />
     </>
   );
 }

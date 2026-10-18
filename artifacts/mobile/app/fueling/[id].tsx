@@ -352,7 +352,7 @@ export default function FuelingFormScreen() {
             })}
           </View>
           <Text style={{ color: colors.mutedForeground, fontSize: 11, fontFamily: "Inter_500Medium" }}>
-            Marque como chegou no posto. O consumo é medido entre dois pontos iguais (Cheio→Cheio ou Reserva→Reserva). Abastecimentos parciais são somados no meio do caminho.
+            Cheio: encheu o tanque. Reserva: chegou ao posto na reserva. Parcial: abasteceu só um pouco. O consumo é medido entre dois Cheios ou entre duas Reservas; os Parciais (e o abastecimento do meio) são somados ao trecho que ainda está em andamento.
           </Text>
         </Field>
 

@@ -50,6 +50,10 @@ O **Prisma** é um assistente financeiro pessoal "Offline-First" com inteligênc
 - **Correção**: histórico do chat podia começar com mensagem de ferramenta órfã após o corte de 50 mensagens, causando erro na API; agora sempre inicia em uma mensagem do usuário.
 - **Docs**: `replit.md`, `agente.md` e skills atualizados.
 
+### Consumo (km/L) e instalação do PWA (out/2026)
+- **km/L**: novo motor `lib/fuelSegments.ts`. Antes só usava Reserva se houvesse menos de 2 Cheios (e ignorava as Reservas com 2+ Cheios); agora Cheio→Cheio e Reserva→Reserva coexistem sem contar o mesmo trecho duas vezes. Parciais e abastecimentos do meio somam ao trecho. 18 testes cobrindo reserva, parcial, cheio, mistura, ordem e dados ruins.
+- **Instalar**: botão em Configurações e convite dispensável (14 dias) no Chrome/Android e iPhone/Safari.
+
 ### PWA: service worker e cache (out/2026)
 - Não existia service worker (só manifest): o app não abria offline e dependia do cache HTTP. Criado `public/sw.js` (HTML rede-primeiro com fallback offline, assets com hash cache-primeiro) e `lib/pwa.ts`.
 - Aviso "Nova versão disponível" (`UpdateBanner`) ao detectar deploy novo com o app aberto; remove cache de bundles antigos.

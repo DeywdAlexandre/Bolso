@@ -1,3 +1,4 @@
+import { computeFuelSegments, sortFuelings, type FuelSegment } from "./fuelSegments";
 import type { Fueling, OilChange, Vehicle, VehicleExpense } from "./types";
 
 export type VehicleStats = {
@@ -18,15 +19,11 @@ export type VehicleStats = {
   nextOilChangeAt: number | null;
   kmRemainingOil: number | null;
   oilStatus: "ok" | "soon" | "overdue" | "unknown";
+  /** Trechos usados no cálculo do consumo, em ordem cronológica. */
+  segments: FuelSegment[];
 };
 
 const SOON_THRESHOLD_KM = 500;
-
-function sortByDateAsc<T extends { date: string }>(arr: T[]): T[] {
-  return [...arr].sort(
-    (a, b) => new Date(a.date).getTime() - new Date(b.date).getTime(),
-  );
-}
 
 export function computeVehicleStats(
   vehicle: Vehicle,
@@ -34,13 +31,7 @@ export function computeVehicleStats(
   allOilChanges: OilChange[],
   allExtraExpenses: VehicleExpense[],
 ): VehicleStats {
-  const fuelings = [...allFuelings]
-    .filter((f) => f.vehicleId === vehicle.id)
-    .sort((a, b) => {
-      const dateCompare = a.date.localeCompare(b.date);
-      if (dateCompare !== 0) return dateCompare;
-      return a.odometer - b.odometer;
-    });
+  const fuelings = sortFuelings(allFuelings.filter((f) => f.vehicleId === vehicle.id));
 
   const oilChanges = [...allOilChanges]
     .filter((o) => o.vehicleId === vehicle.id)
@@ -64,85 +55,17 @@ export function computeVehicleStats(
   const totalSpentAllTime = totalSpentFuel + totalSpentOil + totalExtraExpenses;
   const totalLitersAllTime = fuelings.reduce((s, f) => s + f.liters, 0);
 
-  // Segmentos disjuntos calculados
-  let totalKm = 0;
-  let totalLitersInSegments = 0;
-  let totalCostInSegments = 0;
-  const segments: { km: number; liters: number; cost: number }[] = [];
-
-  // Filtrar índices de âncoras por tipo
-  const fullIndices: number[] = [];
-  const reserveIndices: number[] = [];
-
-  for (let i = 0; i < fuelings.length; i++) {
-    if (fuelings[i]!.tankStatus === "full") {
-      fullIndices.push(i);
-    } else if (fuelings[i]!.tankStatus === "reserve") {
-      reserveIndices.push(i);
-    }
-  }
-
-  if (fullIndices.length >= 2) {
-    // Calcular segmentos baseados em Tanque Cheio (Full-to-Full)
-    for (let i = 0; i < fullIndices.length - 1; i++) {
-      const startIdx = fullIndices[i]!;
-      const endIdx = fullIndices[i + 1]!;
-      const start = fuelings[startIdx]!;
-      const end = fuelings[endIdx]!;
-      const km = end.odometer - start.odometer;
-
-      if (km > 0) {
-        let liters = 0;
-        let cost = 0;
-        // Soma todos os litros a partir do próximo após a âncora inicial até o fim
-        for (let j = startIdx + 1; j <= endIdx; j++) {
-          liters += fuelings[j]!.liters;
-          cost += fuelings[j]!.totalCost;
-        }
-
-        if (liters > 0) {
-          totalKm += km;
-          totalLitersInSegments += liters;
-          totalCostInSegments += cost;
-          segments.push({ km, liters, cost });
-        }
-      }
-    }
-  } else if (reserveIndices.length >= 2) {
-    // Fallback: Calcular segmentos baseados em Reserva (Reserve-to-Reserve)
-    for (let i = 0; i < reserveIndices.length - 1; i++) {
-      const startIdx = reserveIndices[i]!;
-      const endIdx = reserveIndices[i + 1]!;
-      const start = fuelings[startIdx]!;
-      const end = fuelings[endIdx]!;
-      const km = end.odometer - start.odometer;
-
-      if (km > 0) {
-        let liters = 0;
-        let cost = 0;
-        // Soma todos os litros a partir da âncora inicial até o anterior ao fim
-        for (let j = startIdx; j < endIdx; j++) {
-          liters += fuelings[j]!.liters;
-          cost += fuelings[j]!.totalCost;
-        }
-
-        if (liters > 0) {
-          totalKm += km;
-          totalLitersInSegments += liters;
-          totalCostInSegments += cost;
-          segments.push({ km, liters, cost });
-        }
-      }
-    }
-  }
+  // Trechos medidos (Cheio→Cheio e Reserva→Reserva), sem sobreposição. Ver lib/fuelSegments.ts
+  const segments = computeFuelSegments(fuelings);
+  const totalKm = segments.reduce((s, g) => s + g.km, 0);
+  const totalLitersInSegments = segments.reduce((s, g) => s + g.liters, 0);
+  const totalCostInSegments = segments.reduce((s, g) => s + g.cost, 0);
 
   const hasComputedKmL = totalLitersInSegments > 0;
   const avgKmPerLiter = hasComputedKmL ? totalKm / totalLitersInSegments : null;
   const avgCostPerKm = totalKm > 0 ? totalCostInSegments / totalKm : null;
   const recentSegment = segments[segments.length - 1] ?? null;
-  const recentKmPerLiter = recentSegment
-    ? recentSegment.km / recentSegment.liters
-    : null;
+  const recentKmPerLiter = recentSegment ? recentSegment.kmPerLiter : null;
 
   const odometers: number[] = [];
   for (const f of fuelings) odometers.push(f.odometer);
@@ -181,6 +104,7 @@ export function computeVehicleStats(
     nextOilChangeAt,
     kmRemainingOil,
     oilStatus,
+    segments,
   };
 }
 

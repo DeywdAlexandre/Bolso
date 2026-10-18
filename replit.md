@@ -14,7 +14,7 @@ App mobile (Expo / React Native) em português brasileiro, offline-first, para c
 
 - **Finanças**: transações, dashboard por período (mês/ano/intervalo), histórico estilo extrato com filtros, categorias personalizadas e recorrências/assinaturas aplicadas automaticamente.
 - **Metas**: aportes, simulador CDI/poupança e rendimento automático.
-- **Veículos**: KM/L (abastecimentos cheio→cheio e parciais), R$/km, troca de óleo, gastos extras e gasto vinculado em Transporte.
+- **Veículos**: KM/L por trechos Cheio→Cheio e Reserva→Reserva (regras abaixo), R$/km, troca de óleo, gastos extras e gasto vinculado em Transporte.
 - **Empréstimos**: contatos, dívidas, parcelas fixas/variáveis, agenda de vencimentos e extratos em PDF.
 - **Plantões**: regras de escala, geração de turnos, templates e calendário.
 - **Finn (IA)**: bolinha/hub de chat com tool calling (OpenRouter), multi-round (até 4 rodadas), ditado por voz e briefing matinal.
@@ -46,7 +46,17 @@ artifacts/mobile/
   constants/colors.ts            Paleta
 ```
 
+## Consumo (km/L) — regras (`lib/fuelSegments.ts`, testadas)
+
+O status do abastecimento diz como estava o tanque ao abastecer:
+- **Cheio→Cheio**: litros = parciais/reservas do meio + o abastecimento do Cheio final. Os litros do Cheio inicial não entram.
+- **Reserva→Reserva**: litros = abastecimento da Reserva inicial + o que foi abastecido no meio (parciais, cheios). Os litros da Reserva final não entram (viram o início do próximo trecho).
+- **Parcial**: nunca fecha uma medição; seus litros são somados ao trecho em andamento.
+- Os dois métodos coexistem; trechos que se sobrepõem não são contados duas vezes (fica o conjunto que mede mais km). A ordem é pelo odômetro (empate: data). Odômetro repetido/regressivo e trechos sem litros são ignorados.
+
 ## PWA (web)
+
+- **Instalar**: `lib/install.ts` captura `beforeinstallprompt`; `PwaBanners` mostra o convite (Chrome/Android: um toque; iPhone/Safari: passo a passo) e o adia por 14 dias ao fechar; Configurações → "Instalar aplicativo" aparece sempre que o app não está instalado. Só funciona com manifest + service worker em HTTPS.
 
 - **Template HTML**: a saída web é `single`, então `app/+html.tsx` **não** é usado. As tags do PWA (manifest, `theme-color`, metatags iOS, ícones) ficam em `artifacts/mobile/public/index.html`, que o Expo usa como template.
 - **Service worker** (`public/sw.js`, registrado em `lib/pwa.ts`, só em produção): HTML com rede primeiro e cópia offline (timeout 4 s); arquivos com hash (`/_expo/static`, `/assets`) com cache primeiro; ícones/manifest com stale-while-revalidate; domínios externos (OpenRouter) nunca passam pelo cache. Para invalidar tudo, aumente `VERSION` em `sw.js`.

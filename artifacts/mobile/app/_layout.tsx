@@ -19,7 +19,8 @@ import { Platform } from "react-native";
 import { AuthGuard } from "@/components/AuthGuard";
 import { registerServiceWorker } from "@/lib/pwa";
 import { migrateLegacyStorage } from "@/lib/storage";
-import { UpdateBanner } from "@/components/UpdateBanner";
+import { PwaBanners } from "@/components/pwa/PwaBanners";
+import { initInstallPrompt } from "@/lib/install";
 import { ChatSheet } from "@/components/ChatSheet";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { AppDataProvider } from "@/contexts/AppDataContext";
@@ -94,6 +95,9 @@ function RootLayoutNav() {
     </Stack>
   );
 }
+
+// O evento de instalação pode disparar antes de qualquer tela montar.
+initInstallPrompt();
 
 export default function RootLayout() {
   const [fontsLoaded, fontError] = useFonts({
@@ -178,7 +182,7 @@ function AppContent() {
                   <AuthGuard>
                     <RootLayoutNav />
                     <ChatSheet />
-                    <UpdateBanner />
+                    <PwaBanners />
                   </AuthGuard>
                 </ChatProvider>
               </AppDataProvider>
