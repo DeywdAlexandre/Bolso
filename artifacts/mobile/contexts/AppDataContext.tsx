@@ -268,6 +268,7 @@ export function AppDataProvider({ children }: { children: React.ReactNode }) {
   const importData = useCallback(async (json: string) => {
     try {
       const data = JSON.parse(json);
+      // "Bolso" era o nome anterior do app; backups antigos continuam válidos.
       if ((data.app !== "Bolso" && data.app !== "Prisma") || !data.version || !data.payload) {
         throw new Error("Arquivo de backup inválido.");
       }

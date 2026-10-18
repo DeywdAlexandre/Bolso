@@ -29,7 +29,7 @@ export function DashboardHeader({
 
   useEffect(() => {
     (async () => {
-      const saved = await loadJson<boolean>("@bolso/settings/show_balance", true);
+      const saved = await loadJson<boolean>("@prisma/settings/show_balance", true);
       setShowBalance(saved);
     })();
   }, []);
@@ -37,7 +37,7 @@ export function DashboardHeader({
   const toggleBalance = async () => {
     const next = !showBalance;
     setShowBalance(next);
-    await saveJson("@bolso/settings/show_balance", next);
+    await saveJson("@prisma/settings/show_balance", next);
   };
 
   const topPad = Platform.OS === "web" ? 15 : insets.top;

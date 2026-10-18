@@ -15,9 +15,6 @@ type SettingsContextValue = {
   setThemeMode: (mode: "system" | "light" | "dark") => Promise<void>;
   setBiometricsEnabled: (enabled: boolean) => Promise<void>;
   setActiveTabs: (tabs: TabName[]) => Promise<void>;
-  setGoogleCalendarLinked: (linked: boolean) => Promise<void>;
-  setGoogleSheetsLinked: (linked: boolean) => Promise<void>;
-  setLastSyncAt: (syncAt: string | undefined) => Promise<void>;
 };
 
 const DEFAULT_SETTINGS: Settings = {
@@ -26,8 +23,6 @@ const DEFAULT_SETTINGS: Settings = {
   themeMode: "system",
   biometricsEnabled: false,
   activeTabs: ["index", "finance", "vehicles", "shifts"],
-  googleCalendarLinked: false,
-  googleSheetsLinked: false,
 };
 
 const SettingsContext = createContext<SettingsContextValue | null>(null);
@@ -104,30 +99,6 @@ export function SettingsProvider({ children }: { children: React.ReactNode }) {
     });
   }, []);
 
-  const setGoogleCalendarLinked = useCallback(async (linked: boolean) => {
-    setSettings((prev) => {
-      const next = { ...prev, googleCalendarLinked: linked };
-      void saveJson(STORAGE_KEYS.settings, next);
-      return next;
-    });
-  }, []);
-
-  const setGoogleSheetsLinked = useCallback(async (linked: boolean) => {
-    setSettings((prev) => {
-      const next = { ...prev, googleSheetsLinked: linked };
-      void saveJson(STORAGE_KEYS.settings, next);
-      return next;
-    });
-  }, []);
-
-  const setLastSyncAt = useCallback(async (syncAt: string | undefined) => {
-    setSettings((prev) => {
-      const next = { ...prev, lastSyncAt: syncAt };
-      void saveJson(STORAGE_KEYS.settings, next);
-      return next;
-    });
-  }, []);
-
   const value = useMemo<SettingsContextValue>(
     () => ({
       ready,
@@ -139,9 +110,6 @@ export function SettingsProvider({ children }: { children: React.ReactNode }) {
       setThemeMode,
       setBiometricsEnabled,
       setActiveTabs,
-      setGoogleCalendarLinked,
-      setGoogleSheetsLinked,
-      setLastSyncAt,
     }),
     [
       ready,
@@ -153,9 +121,6 @@ export function SettingsProvider({ children }: { children: React.ReactNode }) {
       setThemeMode,
       setBiometricsEnabled,
       setActiveTabs,
-      setGoogleCalendarLinked,
-      setGoogleSheetsLinked,
-      setLastSyncAt,
     ],
   );
 

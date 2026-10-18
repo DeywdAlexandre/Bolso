@@ -2,9 +2,9 @@
 name: ui-premium-standards
 description: Use quando precisar criar ou modificar componentes de interface para garantir o padrão visual premium (Mercado Pago style).
 ---
-# UI Premium Standards (Bolso)
+# UI Premium Standards (Prisma)
 
-Esta habilidade define os padrões estéticos e de experiência do usuário para o app Bolso, inspirados no estilo "Mercado Pago" e designs de alta fidelidade.
+Esta habilidade define os padrões estéticos e de experiência do usuário para o app Prisma, inspirados no estilo "Mercado Pago" e designs de alta fidelidade.
 
 ## Diretrizes de Design
 1. **Dark Mode First**: O app é nativamente Dark Mode. Use a paleta de cores definida em `hooks/useColors.ts`.
@@ -14,6 +14,5 @@ Esta habilidade define os padrões estéticos e de experiência do usuário para
 5. **Espaçamento e Bordas**: Use bordas arredondadas generosas (`borderRadius: 14` a `18`) e evite designs "quadrados".
 
 ## Componentes Chave
-- `SummaryCards`: Para resumos financeiros.
 - `TransactionItem`: Para listas de movimentações.
 - `CategoryBreakdown`: Para gráficos e divisões por categoria.

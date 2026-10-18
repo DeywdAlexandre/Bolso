@@ -1,12 +1,17 @@
 import * as SecureStore from "expo-secure-store";
 import { Platform } from "react-native";
 
-const WEB_KEY_PREFIX = "@bolso/secure/";
+const WEB_KEY_PREFIX = "@prisma/secure/";
+const LEGACY_WEB_KEY_PREFIX = "@bolso/secure/";
 
 export async function getSecureItem(key: string): Promise<string | null> {
   if (Platform.OS === "web") {
     try {
-      return globalThis.localStorage?.getItem(WEB_KEY_PREFIX + key) ?? null;
+      return (
+        globalThis.localStorage?.getItem(WEB_KEY_PREFIX + key) ??
+        globalThis.localStorage?.getItem(LEGACY_WEB_KEY_PREFIX + key) ??
+        null
+      );
     } catch {
       return null;
     }

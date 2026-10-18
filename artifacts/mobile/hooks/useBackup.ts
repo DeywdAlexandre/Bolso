@@ -11,7 +11,7 @@ export function useBackup() {
   const handleExport = async () => {
     try {
       const json = await exportData();
-      const filename = `backup_bolso_${new Date().toISOString().split("T")[0]}.json`;
+      const filename = `backup_prisma_${new Date().toISOString().split("T")[0]}.json`;
 
       if (Platform.OS === "web") {
         const blob = new Blob([json], { type: "application/json" });
@@ -72,7 +72,7 @@ export function useBackup() {
       }
     } catch (err) {
       console.error(err);
-      Alert.alert("Erro", "O arquivo selecionado não é um backup válido do Bolso.");
+      Alert.alert("Erro", "O arquivo selecionado não é um backup válido do Prisma.");
     }
   };
 

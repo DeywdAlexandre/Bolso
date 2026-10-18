@@ -4,7 +4,7 @@ description: Use para expandir as capacidades do assistente Finn (IA), adicionan
 ---
 # AI Assistant Integration (Finn)
 
-O assistente Finn é o coração do Bolso, permitindo comandos por voz e texto.
+O assistente Finn é o coração do Prisma, permitindo comandos por voz e texto.
 
 ## Diretrizes de Implementação
 1. **Tool Definition**: Novas funções para a IA devem ser definidas no array `AI_TOOLS` em `lib/aiTools.ts`.

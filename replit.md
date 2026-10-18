@@ -1,77 +1,49 @@
-# Bolso — Controle financeiro pessoal
+# Prisma — Finanças, veículos, empréstimos e plantões
 
-App mobile (Expo / React Native) em português brasileiro para controlar entradas e gastos pessoais.
+App mobile (Expo / React Native) em português brasileiro, offline-first, para controlar finanças pessoais, veículos, empréstimos, metas e escalas de plantão. (Nome anterior: "Bolso".)
 
 ## Visão geral
 
-- **Tema**: dark mode premium inspirado em Robinhood / Cash App, com primary verde esmeralda.
+- **Tema**: dark mode premium inspirado em Mercado Pago / Robinhood, com primary verde esmeralda.
 - **Idioma**: pt-BR. Moeda BRL (R$).
-- **Persistência**: 100% local — AsyncStorage para dados, expo-secure-store (com fallback localStorage no web) para a chave da API.
-- **Sem backend.**
+- **Persistência**: 100% local — AsyncStorage (chaves `@prisma/<entidade>/v1`) e expo-secure-store (com fallback localStorage no web) para a chave da API.
+- **Sem backend para o app.** `artifacts/api-server` é apenas um servidor Express mínimo (health check) e `artifacts/mockup-sandbox` um sandbox de mockups.
+- **Migração**: instalações antigas (chaves `@bolso/*`) são copiadas para `@prisma/*` na primeira abertura (`migrateLegacyStorage` em `lib/storage.ts`). Backups com `app: "Bolso"` continuam importáveis.
 
 ## Funcionalidades
 
-- Adicionar / editar / excluir transações (entradas e gastos).
-- Dashboard organizado por período (mês ou ano), com seletor visual e picker de mês/ano.
-- Cartões de saldo, entradas e gastos.
-- Quebra por categoria com barras proporcionais.
-- Histórico completo (estilo extrato) com:
-  - Seletor de período: Mês, Ano ou intervalo de datas (DD/MM – DD/MM) com calendário e atalhos (Hoje, 7 dias, 30 dias, Mês atual).
-  - Filtros por tipo (Tudo / Gastos / Entradas) e por categoria.
-  - Barra de totais (Entradas / Gastos / Saldo) do período filtrado.
-  - Lista agrupada por dia.
-- Recorrências (assinaturas, aluguel, salário): cadastra com dia do mês e o app aplica automaticamente.
-- Categorias padrão (Alimentação, Transporte, etc.) + criação de categorias personalizadas com ícone e cor.
-- Bolinha flutuante de IA visível em todas as telas com:
-  - Chat livre (qualquer assunto)
-  - Tool calling para `add_transaction`, `list_transactions`, `get_summary`, `get_categories`, `add_recurring`, `delete_transaction`.
-  - Multi-round (até 4 rodadas de ferramenta por mensagem).
-  - Botão de microfone (ditado em pt-BR): Web Speech API no navegador, expo-speech-recognition no celular (requer dev build/APK; em Expo Go o botão fica oculto).
-- Configurações com chave OpenRouter, escolha do modelo (sugestões: gpt-4o-mini padrão, gemini-2.0-flash, claude-3.5-haiku, deepseek-chat, gpt-4o), e reset de dados.
-- **Veículos** (4ª aba): cadastro de veículos (nome, placa, combustível, ícone, cor) com dashboard por veículo:
-  - KM/L médio (segmentos cheio→cheio ou reserva→reserva), R$ por km, próxima troca de óleo.
-  - Abastecimento: 3 campos inteligentes (valor, litros, R$/L) — preenche 2 e o terceiro é calculado.
-  - Estado do tanque (cheio / reserva) usado para detectar segmentos válidos de consumo.
-  - Troca de óleo: km atual + intervalo (3k/5k/7,5k/10k atalhos) → próxima troca calculada.
-  - Toggle "Gerar gasto vinculado" cria/atualiza/exclui automaticamente uma transação em Transporte.
+- **Finanças**: transações, dashboard por período (mês/ano/intervalo), histórico estilo extrato com filtros, categorias personalizadas e recorrências/assinaturas aplicadas automaticamente.
+- **Metas**: aportes, simulador CDI/poupança e rendimento automático.
+- **Veículos**: KM/L (abastecimentos cheio→cheio e parciais), R$/km, troca de óleo, gastos extras e gasto vinculado em Transporte.
+- **Empréstimos**: contatos, dívidas, parcelas fixas/variáveis, agenda de vencimentos e extratos em PDF.
+- **Plantões**: regras de escala, geração de turnos, templates e calendário.
+- **Finn (IA)**: bolinha/hub de chat com tool calling (OpenRouter), multi-round (até 4 rodadas), ditado por voz e briefing matinal.
+- **Segurança e dados**: bloqueio biométrico, ocultação de saldo, backup/restauração em JSON, notificações locais de vencimento.
+- **Configurações**: chave OpenRouter, modelo (GPT-4o mini padrão, DeepSeek V3), tema, abas visíveis e reset de dados.
+- A integração com Google (Sheets/Calendar) foi removida para manter o app 100% offline.
 
 ## Estrutura
 
 ```
 artifacts/mobile/
   app/
-    _layout.tsx                  Stack root + providers + ChatSheet overlay
-    (tabs)/
-      _layout.tsx                Tabs (Início, Histórico, Fixos, Veículos) + ChatFAB
-      index.tsx                  Dashboard
-      history.tsx                Lista filtrada agrupada por dia
-      recurring.tsx              Lista de recorrências com switch ativo
-      vehicles.tsx               Lista de veículos com KPIs por card
-    transaction/{new,[id]}.tsx   Formulário de transação (modal)
-    recurring/{new,[id]}.tsx     Formulário de recorrência (modal)
-    vehicle/new.tsx              Formulário de veículo (modal, ?id= edita)
-    vehicle/[id].tsx             Detalhes/dashboard do veículo + histórico
-    fueling/[id].tsx             Form abastecimento (id="new" + ?vehicleId=, edita)
-    oilchange/[id].tsx           Form troca de óleo (id="new" + ?vehicleId=, edita)
-    settings.tsx                 Configurações (chave + modelo)
-    categories.tsx               Gerenciamento de categorias
-  components/                    UI atomica (AmountInput, IconCircle,
-                                 CategoryPicker, PeriodSelector,
-                                 SummaryCards, CategoryBreakdown,
-                                 TransactionItem, EmptyState,
-                                 ChatFAB, ChatSheet, etc.)
-  contexts/
-    AppDataContext.tsx           transactions/recurring/categories +
-                                 aplicação automática de recorrências
-    SettingsContext.tsx          settings + apiKey via SecureStore
-    ChatContext.tsx              histórico do chat + execução de tools
+    _layout.tsx                  Stack root + providers + ChatSheet overlay + migração de storage
+    (tabs)/                      index (Início), finance, vehicles, goals, loans, shifts
+                                 (abas visíveis configuráveis em settings/customize-tabs)
+    transaction/ recurring/      Formulários e listas de transações e fixos
+    vehicle/ fueling/ oilchange/ Veículos, abastecimentos e troca de óleo
+    loans/ goals/                Empréstimos (contatos, agenda, detalhes) e metas
+    history.tsx categories.tsx settings.tsx
+  components/                    UI atômica e widgets (dashboard/, home/, loans/, vehicle/, settings/)
+  contexts/                      AppDataContext (une os estados), SettingsContext, ChatContext
+  hooks/state/                   Estado + persistência por domínio (transactions, vehicles, loans, goals, shifts)
+  hooks/                         useDashboard, useBackup, useVehicle, useSpeechRecognition...
   lib/
-    types.ts | format.ts | categories.ts | storage.ts | secureStorage.ts
-    openrouter.ts                Cliente OpenRouter (chat completions)
-    aiTools.ts                   Definições de tools + handlers + system prompt
-    vehicleStats.ts              Cálculo KM/L, R$/km, status próxima troca
-  constants/colors.ts            Paleta dark
-  hooks/useColors.ts
+    storage.ts secureStorage.ts  AsyncStorage (@prisma/*) e SecureStore
+    openrouter.ts                Cliente OpenRouter
+    ai/                          systemPrompt, toolDefinitions, toolTypes e handlers/ por domínio
+    vehicleStats.ts reports.ts notifications.ts format.ts types.ts categories.ts
+  constants/colors.ts            Paleta
 ```
 
 ## Notas técnicas
@@ -80,7 +52,6 @@ artifacts/mobile/
 - O ChatContext executa rodadas de tool calling reais: enquanto o modelo retornar `tool_calls`, ele executa, anexa os resultados como mensagens role=`tool` e refaz a chamada. Limite: 4 rodadas.
 - A chave da API nunca aparece em logs e é armazenada em SecureStore (Keychain/Keystore). No web, cai para `localStorage` (apenas para preview de desenvolvimento).
 - Toda comunicação com OpenRouter usa `expo/fetch` para compatibilidade com React Native.
-- Não usar `console.log` em servidor — não há servidor neste app.
 
 ## Pacotes adicionados além do scaffold
 
@@ -109,7 +80,7 @@ Configurado em `artifacts/mobile/eas.json` com 3 perfis:
 - **preview** — APK Android distribuição interna (instala diretamente no celular). É o perfil recomendado para o usuário gerar e usar.
 - **production** — App Bundle (`.aab`) para Play Store, com auto-incremento.
 
-Identidade do app: `com.bolso.app` (Android `package` + iOS `bundleIdentifier`).
+Identidade do app: `com.prisma.app` (Android `package` + iOS `bundleIdentifier`).
 
 Comandos a partir de `artifacts/mobile/`:
 
