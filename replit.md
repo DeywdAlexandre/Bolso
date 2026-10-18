@@ -46,6 +46,14 @@ artifacts/mobile/
   constants/colors.ts            Paleta
 ```
 
+## Contas e carteira (`lib/accounts.ts`, testado)
+
+- **Conta** (`Account`): banco, carteira ou poupança, com `initialBalance` em `balanceDate`. Saldo = inicial + lançamentos da conta **a partir dessa data** (os anteriores já estão embutidos). Cadastro em Configurações → Bancos e carteira (`app/accounts`); saldos na tela inicial (`AccountsWidget`).
+- **Lançamento e fixo** têm `accountId` e `paymentMethod` opcionais (Pix, débito, dinheiro, boleto, transferência, outro). O formulário (`AccountMethodFields`) vem com a última conta/forma usada; tocar no chip escolhido desmarca ("Sem conta"). Os campos só aparecem se houver conta.
+- **"Sem conta"**: lançamentos sem conta feitos depois que as contas passaram a existir entram nesse grupo (e no total); o histórico anterior não conta (já está nos saldos informados). Sem contas cadastradas, o saldo geral é o acumulado de sempre. Total = soma das contas + "Sem conta".
+- **Conta padrão** (`settings.defaultAccountId`): usada em lançamentos automáticos (fixos efetivados, abastecimento, empréstimo, meta, plantão). Formulários manuais passam `useDefaultAccount: false` e respeitam "Sem conta".
+- **Arquivar** em vez de excluir (o saldo deixa de contar no total); corrigir saldo recalcula o saldo inicial. Contas entram no backup. Cartão de crédito (fatura) e a leitura de faturas pela IA são as próximas etapas; "Crédito" ainda não é uma forma de pagamento.
+
 ## Consumo (km/L) — regras (`lib/fuelSegments.ts`, testadas)
 
 O status do abastecimento diz como estava o tanque ao abastecer:

@@ -7,7 +7,10 @@ import { CategoryPicker } from "@/components/CategoryPicker";
 import { useAppData } from "@/contexts/AppDataContext";
 import { useColors } from "@/hooks/useColors";
 import { formatDate, todayIso } from "@/lib/format";
-import type { TransactionType } from "@/lib/types";
+import { AccountMethodFields } from "@/components/accounts/AccountMethodFields";
+import { useSettings } from "@/contexts/SettingsContext";
+import { preselectedAccountId } from "@/lib/accounts";
+import type { PaymentMethod, TransactionType } from "@/lib/types";
 
 type Initial = {
   type: TransactionType;
@@ -15,10 +18,14 @@ type Initial = {
   categoryId: string | null;
   description: string;
   date: string;
+  accountId: string;
+  paymentMethod: PaymentMethod;
 };
 
 type Props = {
   initial?: Partial<Initial>;
+  /** Lançamento novo: conta e forma de pagamento vêm pré-selecionadas com a última escolha. */
+  rememberLast?: boolean;
   submitLabel: string;
   onSubmit: (values: {
     type: TransactionType;
@@ -26,19 +33,30 @@ type Props = {
     categoryId: string;
     description: string;
     date: string;
+    accountId?: string;
+    paymentMethod?: PaymentMethod;
   }) => Promise<void> | void;
   onDelete?: () => Promise<void> | void;
 };
 
-export function TransactionForm({ initial, submitLabel, onSubmit, onDelete }: Props) {
+export function TransactionForm({ initial, rememberLast, submitLabel, onSubmit, onDelete }: Props) {
   const colors = useColors();
-  const { categories } = useAppData();
+  const { categories, accounts } = useAppData();
+  const { settings, updateSettings } = useSettings();
 
   const [type, setType] = useState<TransactionType>(initial?.type ?? "expense");
   const [amount, setAmount] = useState<number>(initial?.amount ?? 0);
   const [categoryId, setCategoryId] = useState<string | null>(initial?.categoryId ?? null);
   const [description, setDescription] = useState<string>(initial?.description ?? "");
   const [date, setDate] = useState<string>(initial?.date ?? todayIso());
+  const [accountId, setAccountId] = useState<string | undefined>(
+    rememberLast
+      ? preselectedAccountId(accounts, settings.lastAccountId, settings.defaultAccountId)
+      : initial?.accountId,
+  );
+  const [paymentMethod, setPaymentMethod] = useState<PaymentMethod | undefined>(
+    rememberLast ? settings.lastPaymentMethod : initial?.paymentMethod,
+  );
 
   const filteredCats = useMemo(() => categories.filter((c) => c.type === type), [categories, type]);
 
@@ -52,12 +70,20 @@ export function TransactionForm({ initial, submitLabel, onSubmit, onDelete }: Pr
       Alert.alert("Categoria", "Selecione uma categoria.");
       return;
     }
+    if (rememberLast) {
+      await updateSettings({
+        lastAccountId: accountId ?? settings.lastAccountId,
+        lastPaymentMethod: paymentMethod ?? settings.lastPaymentMethod,
+      });
+    }
     await onSubmit({
       type,
       amount,
       categoryId: cat,
       description: description.trim(),
       date,
+      accountId,
+      paymentMethod,
     });
   };
 
@@ -126,6 +152,13 @@ export function TransactionForm({ initial, submitLabel, onSubmit, onDelete }: Pr
           />
         </View>
       </Field>
+
+      <AccountMethodFields
+        accountId={accountId}
+        onAccountChange={setAccountId}
+        paymentMethod={paymentMethod}
+        onPaymentMethodChange={setPaymentMethod}
+      />
 
       <Field label="Descrição">
         <TextInput

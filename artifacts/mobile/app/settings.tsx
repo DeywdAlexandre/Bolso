@@ -14,6 +14,8 @@ import { router, Stack } from "expo-router";
 
 import { useColors } from "@/hooks/useColors";
 import { useSettingsForm } from "@/hooks/useSettingsForm";
+import { useAppData } from "@/contexts/AppDataContext";
+import { formatCurrency } from "@/lib/format";
 import { useBackup } from "@/hooks/useBackup";
 import { useInstall } from "@/hooks/useInstall";
 import { InstallInstructions } from "@/components/pwa/InstallInstructions";
@@ -25,6 +27,7 @@ import { ModelPicker } from "@/components/settings/ModelPicker";
 
 export default function SettingsScreen() {
   const colors = useColors();
+  const { balances } = useAppData();
   const { handleExport, handleImport, handleRestoreSnapshot } = useBackup();
   const { state: installState, install, canInstall } = useInstall();
   const [showInstallSteps, setShowInstallSteps] = useState(false);
@@ -85,6 +88,29 @@ export default function SettingsScreen() {
               ]}
             />
           </SettingsField>
+        </SettingsSection>
+
+        <SettingsSection title="Contas e carteira">
+          <Pressable
+            onPress={() => router.push("/accounts" as any)}
+            style={({ pressed }) => [
+              styles.row,
+              { backgroundColor: colors.card, borderColor: colors.border, opacity: pressed ? 0.7 : 1 },
+            ]}
+          >
+            <View style={[styles.rowIcon, { backgroundColor: colors.primary + "15" }]}>
+              <Feather name="credit-card" size={18} color={colors.primary} />
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={[styles.rowTitle, { color: colors.foreground }]}>Bancos e carteira</Text>
+              <Text style={[styles.rowSub, { color: colors.mutedForeground }]}>
+                {balances.hasAccounts
+                  ? `${balances.accounts.length} ${balances.accounts.length === 1 ? "conta" : "contas"} · ${formatCurrency(balances.total)}`
+                  : "Cadastre quanto você tem em cada banco e na carteira"}
+              </Text>
+            </View>
+            <Feather name="chevron-right" size={20} color={colors.mutedForeground} />
+          </Pressable>
         </SettingsSection>
 
         <ThemeSelector />

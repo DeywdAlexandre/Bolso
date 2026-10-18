@@ -31,6 +31,8 @@ export default function EditTransactionScreen() {
         categoryId: tx.categoryId,
         description: tx.description,
         date: tx.date,
+        accountId: tx.accountId,
+        paymentMethod: tx.paymentMethod,
       }}
       onSubmit={async (values) => {
         await updateTransaction(tx.id, values);

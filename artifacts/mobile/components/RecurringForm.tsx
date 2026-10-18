@@ -6,7 +6,10 @@ import { AmountInput } from "@/components/AmountInput";
 import { CategoryPicker } from "@/components/CategoryPicker";
 import { useAppData } from "@/contexts/AppDataContext";
 import { useColors } from "@/hooks/useColors";
-import type { TransactionType } from "@/lib/types";
+import { AccountMethodFields } from "@/components/accounts/AccountMethodFields";
+import { useSettings } from "@/contexts/SettingsContext";
+import { preselectedAccountId } from "@/lib/accounts";
+import type { PaymentMethod, TransactionType } from "@/lib/types";
 
 type Initial = {
   type: TransactionType;
@@ -16,10 +19,14 @@ type Initial = {
   dayOfMonth: number;
   active: boolean;
   isSubscription: boolean;
+  accountId: string;
+  paymentMethod: PaymentMethod;
 };
 
 type Props = {
   initial?: Partial<Initial>;
+  /** Fixo novo: conta e forma de pagamento vêm pré-selecionadas com a última escolha. */
+  rememberLast?: boolean;
   submitLabel: string;
   onSubmit: (values: {
     type: TransactionType;
@@ -29,13 +36,16 @@ type Props = {
     dayOfMonth: number;
     active: boolean;
     isSubscription: boolean;
+    accountId?: string;
+    paymentMethod?: PaymentMethod;
   }) => Promise<void> | void;
   onDelete?: () => Promise<void> | void;
 };
 
-export function RecurringForm({ initial, submitLabel, onSubmit, onDelete }: Props) {
+export function RecurringForm({ initial, rememberLast, submitLabel, onSubmit, onDelete }: Props) {
   const colors = useColors();
-  const { categories } = useAppData();
+  const { categories, accounts } = useAppData();
+  const { settings } = useSettings();
 
   const [type, setType] = useState<TransactionType>(initial?.type ?? "expense");
   const [amount, setAmount] = useState<number>(initial?.amount ?? 0);
@@ -44,6 +54,14 @@ export function RecurringForm({ initial, submitLabel, onSubmit, onDelete }: Prop
   const [dayOfMonth, setDayOfMonth] = useState<number>(initial?.dayOfMonth ?? new Date().getDate());
   const [active, setActive] = useState<boolean>(initial?.active ?? true);
   const [isSubscription, setIsSubscription] = useState<boolean>(initial?.isSubscription ?? false);
+  const [accountId, setAccountId] = useState<string | undefined>(
+    rememberLast
+      ? preselectedAccountId(accounts, settings.lastAccountId, settings.defaultAccountId)
+      : initial?.accountId,
+  );
+  const [paymentMethod, setPaymentMethod] = useState<PaymentMethod | undefined>(
+    rememberLast ? settings.lastPaymentMethod : initial?.paymentMethod,
+  );
 
   const filteredCats = useMemo(() => categories.filter((c) => c.type === type), [categories, type]);
 
@@ -69,6 +87,8 @@ export function RecurringForm({ initial, submitLabel, onSubmit, onDelete }: Prop
       dayOfMonth,
       active,
       isSubscription,
+      accountId,
+      paymentMethod,
     });
   };
 
@@ -127,6 +147,13 @@ export function RecurringForm({ initial, submitLabel, onSubmit, onDelete }: Prop
           />
         </View>
       </Field>
+
+      <AccountMethodFields
+        accountId={accountId}
+        onAccountChange={setAccountId}
+        paymentMethod={paymentMethod}
+        onPaymentMethodChange={setPaymentMethod}
+      />
 
       <Field label="Descrição">
         <TextInput
