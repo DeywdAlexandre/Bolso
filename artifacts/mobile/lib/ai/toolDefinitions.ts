@@ -25,7 +25,11 @@ export const AI_TOOLS: ToolDefinition[] = [
           paymentMethod: {
             type: "string",
             enum: ["pix", "debit", "cash", "boleto", "transfer", "other"],
-            description: "Forma de pagamento: pix, debit (débito), cash (dinheiro), boleto, transfer (TED/transferência) ou other.",
+            description: "Forma de pagamento: pix, debit (débito), cash (dinheiro), boleto, transfer (TED/transferência) ou other. Em cartão de crédito é automático.",
+          },
+          installments: {
+            type: "number",
+            description: "Só para compra no cartão de crédito: número de parcelas. Nesse caso 'amount' é o valor TOTAL da compra (ex.: 'notebook em 12x de 100' = amount 1200, installments 12).",
           },
         },
         required: ["type", "amount", "category"],
@@ -99,6 +103,22 @@ export const AI_TOOLS: ToolDefinition[] = [
       description:
         "Lista as contas do usuário (bancos, carteira, poupança) com o saldo atual de cada uma, o valor 'Sem conta' e o total. Use para perguntas como 'quanto tenho no Nubank?' ou 'quanto tenho no total?'.",
       parameters: { type: "object", properties: {} },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "get_card_invoice",
+      description:
+        "Detalha a fatura de um cartão de crédito: total, fechamento, vencimento, situação (aberta/fechada/vencida/paga), valor pago e faltante, e os itens. Também devolve as parcelas faltantes de cada compra parcelada e o limite disponível.",
+      parameters: {
+        type: "object",
+        properties: {
+          card: { type: "string", description: "Nome do cartão (veja list_accounts)" },
+          month: { type: "string", description: "Mês em que a fatura fecha, no formato YYYY-MM. Sem ele, usa a fatura atual." },
+        },
+        required: ["card"],
+      },
     },
   },
   {

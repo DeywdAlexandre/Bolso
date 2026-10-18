@@ -22,6 +22,7 @@ export function AccountMethodFields({ accountId, onAccountChange, paymentMethod,
   const colors = useColors();
   const { accounts } = useAppData();
   const active = accounts.filter((a) => !a.archived);
+  const isCard = accounts.find((a) => a.id === accountId)?.kind === "card";
 
   if (active.length === 0) return null;
 
@@ -43,10 +44,12 @@ export function AccountMethodFields({ accountId, onAccountChange, paymentMethod,
         </ScrollView>
       </View>
 
+      {/* Em cartão a forma é sempre "Crédito"; nas demais contas "Crédito" não se aplica. */}
+      {!isCard && (
       <View style={styles.field}>
         <Text style={[styles.label, { color: colors.mutedForeground }]}>Forma de pagamento</Text>
         <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.row}>
-          {PAYMENT_METHODS.map((m) => (
+          {PAYMENT_METHODS.filter((m) => m.value !== "credit").map((m) => (
             <AccountChip
               key={m.value}
               label={m.label}
@@ -56,6 +59,7 @@ export function AccountMethodFields({ accountId, onAccountChange, paymentMethod,
           ))}
         </ScrollView>
       </View>
+      )}
     </>
   );
 }

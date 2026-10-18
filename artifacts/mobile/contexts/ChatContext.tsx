@@ -31,6 +31,7 @@ function toToolDeps(data: AppData, defaultAccountId?: string): ToolDeps {
     accounts: data.accounts,
     balances: data.balances,
     addTransfer: data.addTransfer,
+    transfers: data.transfers,
     defaultAccountId,
     transactions: data.transactions,
     categories: data.categories,
@@ -260,6 +261,8 @@ async function runTool(
     switch (call.function.name) {
       case "add_transaction":
         return await handlers.addTransaction(args as Parameters<typeof handlers.addTransaction>[0]);
+      case "get_card_invoice":
+        return await handlers.getCardInvoice(args as Parameters<typeof handlers.getCardInvoice>[0]);
       case "transfer_between_accounts":
         return await handlers.transferBetweenAccounts(args as Parameters<typeof handlers.transferBetweenAccounts>[0]);
       case "list_accounts":

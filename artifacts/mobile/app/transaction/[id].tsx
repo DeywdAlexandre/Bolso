@@ -1,6 +1,6 @@
 import React, { useMemo } from "react";
 import { router, useLocalSearchParams } from "expo-router";
-import { StyleSheet, Text, View } from "react-native";
+import { Alert, Platform, StyleSheet, Text, View } from "react-native";
 
 import { TransactionForm } from "@/components/TransactionForm";
 import { useAppData } from "@/contexts/AppDataContext";
@@ -39,8 +39,30 @@ export default function EditTransactionScreen() {
         router.back();
       }}
       onDelete={async () => {
-        await removeTransaction(tx.id);
-        router.back();
+        const siblings = tx.installmentGroupId
+          ? transactions.filter((t) => t.installmentGroupId === tx.installmentGroupId)
+          : [];
+        const removeOne = async () => {
+          await removeTransaction(tx.id);
+          router.back();
+        };
+        if (siblings.length <= 1) return removeOne();
+
+        const removeAll = async () => {
+          for (const t of siblings) await removeTransaction(t.id);
+          router.back();
+        };
+        if (Platform.OS === "web") {
+          const all = globalThis.confirm?.(
+            `Esta compra tem ${siblings.length} parcelas. OK = excluir todas as parcelas; Cancelar = excluir só esta.`,
+          );
+          return all ? removeAll() : removeOne();
+        }
+        Alert.alert("Compra parcelada", `Esta compra tem ${siblings.length} parcelas.`, [
+          { text: "Cancelar", style: "cancel" },
+          { text: "Só esta", onPress: () => void removeOne() },
+          { text: "Todas", style: "destructive", onPress: () => void removeAll() },
+        ]);
       }}
     />
   );

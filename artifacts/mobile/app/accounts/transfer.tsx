@@ -12,16 +12,21 @@ import { formatDate, todayIso } from "@/lib/format";
 
 export default function TransferScreen() {
   const colors = useColors();
-  const { id } = useLocalSearchParams<{ id?: string }>();
+  const { id, from: fromParam, to: toParam, amount: amountParam, note: noteParam } =
+    useLocalSearchParams<{ id?: string; from?: string; to?: string; amount?: string; note?: string }>();
   const { accounts, transfers, addTransfer, updateTransfer, removeTransfer } = useAppData();
   const active = accounts.filter((a) => !a.archived);
   const editing = id ? transfers.find((t) => t.id === id) : undefined;
 
-  const [from, setFrom] = useState<string | undefined>(editing?.fromAccountId ?? active[0]?.id);
-  const [to, setTo] = useState<string | undefined>(editing?.toAccountId ?? active[1]?.id);
-  const [amount, setAmount] = useState(editing?.amount ?? 0);
+  const [from, setFrom] = useState<string | undefined>(
+    editing?.fromAccountId ?? (active.some((a) => a.id === fromParam) ? fromParam : active[0]?.id),
+  );
+  const [to, setTo] = useState<string | undefined>(
+    editing?.toAccountId ?? (active.some((a) => a.id === toParam) ? toParam : active.find((a) => a.id !== fromParam)?.id ?? active[1]?.id),
+  );
+  const [amount, setAmount] = useState(editing?.amount ?? (Number(amountParam) > 0 ? Number(amountParam) : 0));
   const [date, setDate] = useState(editing?.date ?? todayIso());
-  const [note, setNote] = useState(editing?.note ?? "");
+  const [note, setNote] = useState(editing?.note ?? noteParam ?? "");
 
   const shiftDate = (days: number) => {
     const d = new Date(date);

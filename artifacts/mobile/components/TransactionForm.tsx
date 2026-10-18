@@ -8,6 +8,7 @@ import { useAppData } from "@/contexts/AppDataContext";
 import { useColors } from "@/hooks/useColors";
 import { formatDate, todayIso } from "@/lib/format";
 import { AccountMethodFields } from "@/components/accounts/AccountMethodFields";
+import { InstallmentsField, totalFromInput, type InstallmentMode } from "@/components/accounts/InstallmentsField";
 import { useSettings } from "@/contexts/SettingsContext";
 import { preselectedAccountId } from "@/lib/accounts";
 import type { PaymentMethod, TransactionType } from "@/lib/types";
@@ -26,6 +27,8 @@ type Props = {
   initial?: Partial<Initial>;
   /** Lançamento novo: conta e forma de pagamento vêm pré-selecionadas com a última escolha. */
   rememberLast?: boolean;
+  /** Conta pré-escolhida (ex.: "Nova compra no cartão"); vale mais que a última usada. */
+  presetAccountId?: string;
   submitLabel: string;
   onSubmit: (values: {
     type: TransactionType;
@@ -35,11 +38,13 @@ type Props = {
     date: string;
     accountId?: string;
     paymentMethod?: PaymentMethod;
+    /** Compra parcelada no cartão (só em lançamento novo): `amount` já vem como valor total. */
+    installments?: number;
   }) => Promise<void> | void;
   onDelete?: () => Promise<void> | void;
 };
 
-export function TransactionForm({ initial, rememberLast, submitLabel, onSubmit, onDelete }: Props) {
+export function TransactionForm({ initial, rememberLast, presetAccountId, submitLabel, onSubmit, onDelete }: Props) {
   const colors = useColors();
   const { categories, accounts } = useAppData();
   const { settings, updateSettings } = useSettings();
@@ -51,9 +56,12 @@ export function TransactionForm({ initial, rememberLast, submitLabel, onSubmit, 
   const [date, setDate] = useState<string>(initial?.date ?? todayIso());
   const [accountId, setAccountId] = useState<string | undefined>(
     rememberLast
-      ? preselectedAccountId(accounts, settings.lastAccountId, settings.defaultAccountId)
+      ? preselectedAccountId(accounts, presetAccountId ?? settings.lastAccountId, settings.defaultAccountId)
       : initial?.accountId,
   );
+  const [installments, setInstallments] = useState(1);
+  const [installmentMode, setInstallmentMode] = useState<InstallmentMode>("total");
+  const isCard = accounts.find((a) => a.id === accountId)?.kind === "card";
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod | undefined>(
     rememberLast ? settings.lastPaymentMethod : initial?.paymentMethod,
   );
@@ -73,17 +81,19 @@ export function TransactionForm({ initial, rememberLast, submitLabel, onSubmit, 
     if (rememberLast) {
       await updateSettings({
         lastAccountId: accountId ?? settings.lastAccountId,
-        lastPaymentMethod: paymentMethod ?? settings.lastPaymentMethod,
+        lastPaymentMethod: isCard ? settings.lastPaymentMethod : paymentMethod ?? settings.lastPaymentMethod,
       });
     }
+    const count = rememberLast && isCard && type === "expense" ? installments : 1;
     await onSubmit({
       type,
-      amount,
+      amount: count > 1 ? totalFromInput(amount, count, installmentMode) : amount,
+      installments: count > 1 ? count : undefined,
       categoryId: cat,
       description: description.trim(),
       date,
       accountId,
-      paymentMethod,
+      paymentMethod: isCard ? "credit" : paymentMethod === "credit" ? undefined : paymentMethod,
     });
   };
 
@@ -159,6 +169,16 @@ export function TransactionForm({ initial, rememberLast, submitLabel, onSubmit, 
         paymentMethod={paymentMethod}
         onPaymentMethodChange={setPaymentMethod}
       />
+
+      {rememberLast && isCard && type === "expense" && (
+        <InstallmentsField
+          count={installments}
+          onCountChange={setInstallments}
+          mode={installmentMode}
+          onModeChange={setInstallmentMode}
+          amount={amount}
+        />
+      )}
 
       <Field label="Descrição">
         <TextInput

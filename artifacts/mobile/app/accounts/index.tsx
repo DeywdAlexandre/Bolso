@@ -7,7 +7,8 @@ import { useAppData } from "@/contexts/AppDataContext";
 import { useSettings } from "@/contexts/SettingsContext";
 import { useColors } from "@/hooks/useColors";
 import { ACCOUNT_KINDS } from "@/lib/accounts";
-import { formatCurrency } from "@/lib/format";
+import { useCards } from "@/hooks/useCards";
+import { formatCurrency, formatDate } from "@/lib/format";
 
 export default function AccountsScreen() {
   const colors = useColors();
@@ -15,6 +16,7 @@ export default function AccountsScreen() {
   const { settings } = useSettings();
 
   const archived = accounts.filter((a) => a.archived);
+  const cards = useCards();
   const kindOf = (kind: string) => ACCOUNT_KINDS.find((k) => k.value === kind);
 
   return (
@@ -68,6 +70,38 @@ export default function AccountsScreen() {
         );
       })}
 
+      {cards.length > 0 && (
+        <View style={{ gap: 8 }}>
+          <Text style={[styles.sectionTitle, { color: colors.mutedForeground }]}>Cartões de crédito</Text>
+          {cards.map(({ card, summary }) => (
+            <Pressable
+              key={card.id}
+              onPress={() => router.push(`/cards/${card.id}` as any)}
+              style={({ pressed }) => [
+                styles.row,
+                { backgroundColor: colors.card, borderColor: colors.border, opacity: pressed ? 0.8 : 1 },
+              ]}
+            >
+              <View style={[styles.icon, { backgroundColor: card.color + "22" }]}>
+                <Feather name="credit-card" size={18} color={card.color} />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={[styles.name, { color: colors.foreground }]}>{card.name}</Text>
+                <Text style={[styles.sub, { color: colors.mutedForeground }]}>
+                  {summary.current
+                    ? `Fatura atual ${formatCurrency(summary.current.total)} · vence ${formatDate(summary.current.dueDate)}`
+                    : "Sem fatura em aberto"}
+                </Text>
+              </View>
+              <Text style={[styles.balance, { color: summary.debt > 0 ? colors.expense : colors.foreground }]}>
+                {formatCurrency(Math.max(summary.debt, 0))}
+              </Text>
+              <Feather name="chevron-right" size={18} color={colors.mutedForeground} />
+            </Pressable>
+          ))}
+        </View>
+      )}
+
       {balances.hasAccounts && balances.unassigned !== 0 && (
         <View style={[styles.row, { backgroundColor: colors.card, borderColor: colors.border }]}>
           <View style={[styles.icon, { backgroundColor: colors.muted }]}>
@@ -91,7 +125,7 @@ export default function AccountsScreen() {
         <Text style={[styles.addText, { color: colors.primaryForeground }]}>Nova conta</Text>
       </Pressable>
 
-      {balances.accounts.length >= 2 && (
+      {balances.accounts.length + balances.cards.length >= 2 && (
         <Pressable
           onPress={() => router.push("/accounts/transfer" as any)}
           style={({ pressed }) => [

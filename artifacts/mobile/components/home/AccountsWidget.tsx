@@ -3,8 +3,9 @@ import { Pressable, StyleSheet, Text, View } from "react-native";
 import { Feather } from "@expo/vector-icons";
 import { router } from "expo-router";
 
+import { useCards } from "@/hooks/useCards";
 import { useColors } from "@/hooks/useColors";
-import { formatCurrency } from "@/lib/format";
+import { formatCurrency, formatDate } from "@/lib/format";
 import type { BalanceSummary } from "@/lib/accounts";
 
 type Props = {
@@ -18,6 +19,7 @@ const HIDDEN = "••••••";
 export function AccountsWidget({ balances, showValue }: Props) {
   const colors = useColors();
   const money = (v: number) => (showValue ? formatCurrency(v) : HIDDEN);
+  const cards = useCards();
 
   if (!balances.hasAccounts) {
     return (
@@ -66,6 +68,24 @@ export function AccountsWidget({ balances, showValue }: Props) {
             <Text style={[styles.value, { color: balance < 0 ? colors.expense : colors.foreground }]}>{money(balance)}</Text>
           </View>
         ))}
+        {cards.map(({ card, summary }) => (
+          <Pressable key={card.id} onPress={() => router.push(`/cards/${card.id}` as any)} style={styles.row}>
+            <Feather name="credit-card" size={12} color={card.color} />
+            <View style={{ flex: 1 }}>
+              <Text style={[styles.name, { color: colors.foreground }]} numberOfLines={1}>
+                {card.name}
+              </Text>
+              {summary.current ? (
+                <Text style={[styles.sub, { color: colors.mutedForeground }]}>
+                  Fatura {money(summary.current.total)} · vence {formatDate(summary.current.dueDate)}
+                </Text>
+              ) : null}
+            </View>
+            <Text style={[styles.value, { color: summary.debt > 0 ? colors.expense : colors.foreground }]}>
+              {money(Math.max(summary.debt, 0))}
+            </Text>
+          </Pressable>
+        ))}
         {balances.unassigned !== 0 && (
           <View style={styles.row}>
             <View style={[styles.dot, { backgroundColor: colors.mutedForeground }]} />
@@ -76,7 +96,7 @@ export function AccountsWidget({ balances, showValue }: Props) {
       </View>
 
       <View style={[styles.totalRow, { borderTopColor: colors.border }]}>
-        <Text style={[styles.totalLabel, { color: colors.mutedForeground }]}>Total</Text>
+        <Text style={[styles.totalLabel, { color: colors.mutedForeground }]}>Dinheiro em contas</Text>
         <Text style={[styles.totalValue, { color: colors.foreground }]}>{money(balances.total)}</Text>
       </View>
     </View>

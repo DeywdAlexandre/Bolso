@@ -19,12 +19,19 @@ export default function AccountFormScreen() {
   const { settings, updateSettings } = useSettings();
 
   const editing = id && id !== "new" ? accounts.find((a) => a.id === id) : undefined;
-  const currentBalance = editing ? balances.accounts.find((b) => b.account.id === editing.id)?.balance ?? 0 : 0;
+  const currentBalance = editing
+    ? [...balances.accounts, ...balances.cards].find((b) => b.account.id === editing.id)?.balance ?? 0
+    : 0;
 
   const [name, setName] = useState(editing?.name ?? "");
   const [kind, setKind] = useState<AccountKind>(editing?.kind ?? "bank");
   const [color, setColor] = useState(editing?.color ?? ACCOUNT_COLORS[accounts.length % ACCOUNT_COLORS.length]!);
-  const [balance, setBalance] = useState(editing ? currentBalance : 0);
+  const isCard = kind === "card";
+  // Em cartão o valor informado é a dívida (positiva na tela, negativa no saldo).
+  const [balance, setBalance] = useState(editing ? (editing.kind === "card" ? -currentBalance : currentBalance) : 0);
+  const [closingDay, setClosingDay] = useState(String(editing?.closingDay ?? 20));
+  const [dueDay, setDueDay] = useState(String(editing?.dueDay ?? 28));
+  const [limit, setLimit] = useState(editing?.creditLimit ?? 0);
   const [makeDefault, setMakeDefault] = useState(editing ? settings.defaultAccountId === editing.id : accounts.length === 0);
 
   const save = async () => {
@@ -33,14 +40,24 @@ export default function AccountFormScreen() {
       Alert.alert("Nome", "Dê um nome para a conta (ex.: Nubank, Carteira).");
       return;
     }
+    const closing = parseInt(closingDay, 10);
+    const due = parseInt(dueDay, 10);
+    if (isCard && (!(closing >= 1 && closing <= 31) || !(due >= 1 && due <= 31))) {
+      Alert.alert("Cartão", "Informe dias de fechamento e vencimento entre 1 e 31.");
+      return;
+    }
+    const signedBalance = isCard ? -balance : balance;
+    const cardFields = isCard
+      ? { closingDay: closing, dueDay: due, creditLimit: limit > 0 ? limit : undefined }
+      : { closingDay: undefined, dueDay: undefined, creditLimit: undefined };
     let accountId = editing?.id;
     if (editing) {
-      await updateAccount(editing.id, { name: trimmed, kind, color });
-      if (balance !== currentBalance) await correctAccountBalance(editing.id, balance);
+      await updateAccount(editing.id, { name: trimmed, kind, color, ...cardFields });
+      if (signedBalance !== currentBalance) await correctAccountBalance(editing.id, signedBalance);
     } else {
-      accountId = (await addAccount({ name: trimmed, kind, color, balance })).id;
+      accountId = (await addAccount({ name: trimmed, kind, color, balance: signedBalance, ...cardFields })).id;
     }
-    if (makeDefault && accountId) await updateSettings({ defaultAccountId: accountId });
+    if (makeDefault && accountId && !isCard) await updateSettings({ defaultAccountId: accountId });
     else if (!makeDefault && editing && settings.defaultAccountId === editing.id) {
       await updateSettings({ defaultAccountId: undefined });
     }
@@ -105,18 +122,56 @@ export default function AccountFormScreen() {
 
         <View style={styles.field}>
           <Text style={[styles.label, { color: colors.mutedForeground }]}>
-            {editing ? "Saldo atual" : "Quanto há nesta conta hoje?"}
+            {isCard
+              ? "Fatura/dívida em aberto hoje"
+              : editing
+                ? "Saldo atual"
+                : "Quanto há nesta conta hoje?"}
           </Text>
           <View style={styles.amountWrap}>
             <AmountInput value={balance} onChange={setBalance} type="income" />
           </View>
           <Text style={[styles.hint, { color: colors.mutedForeground }]}>
-            {editing
-              ? "Se o valor não bate com o seu banco, corrija aqui. Os lançamentos já feitos são mantidos."
-              : "É o ponto de partida: daqui em diante cada gasto e entrada lançados nesta conta atualizam o saldo."}
+            {isCard
+              ? "Quanto você já deve no cartão agora (fatura em aberto e parcelas a vencer). Deixe 0 se quiser começar do zero; daqui em diante cada compra lançada no cartão entra na fatura."
+              : editing
+                ? "Se o valor não bate com o seu banco, corrija aqui. Os lançamentos já feitos são mantidos."
+                : "É o ponto de partida: daqui em diante cada gasto e entrada lançados nesta conta atualizam o saldo."}
           </Text>
         </View>
 
+        {isCard && (
+          <>
+            <View style={styles.dayRow}>
+              <View style={[styles.field, { flex: 1 }]}>
+                <Text style={[styles.label, { color: colors.mutedForeground }]}>Fecha no dia</Text>
+                <TextInput
+                  value={closingDay}
+                  onChangeText={(v) => setClosingDay(v.replace(/\D/g, "").slice(0, 2))}
+                  keyboardType="number-pad"
+                  style={[styles.input, { backgroundColor: colors.card, color: colors.foreground, borderColor: colors.border }]}
+                />
+              </View>
+              <View style={[styles.field, { flex: 1 }]}>
+                <Text style={[styles.label, { color: colors.mutedForeground }]}>Vence no dia</Text>
+                <TextInput
+                  value={dueDay}
+                  onChangeText={(v) => setDueDay(v.replace(/\D/g, "").slice(0, 2))}
+                  keyboardType="number-pad"
+                  style={[styles.input, { backgroundColor: colors.card, color: colors.foreground, borderColor: colors.border }]}
+                />
+              </View>
+            </View>
+            <View style={styles.field}>
+              <Text style={[styles.label, { color: colors.mutedForeground }]}>Limite (opcional)</Text>
+              <View style={styles.amountWrap}>
+                <AmountInput value={limit} onChange={setLimit} type="income" />
+              </View>
+            </View>
+          </>
+        )}
+
+        {!isCard && (
         <View style={[styles.switchRow, { backgroundColor: colors.card, borderColor: colors.border }]}>
           <View style={{ flex: 1 }}>
             <Text style={[styles.switchTitle, { color: colors.foreground }]}>Conta padrão</Text>
@@ -126,6 +181,7 @@ export default function AccountFormScreen() {
           </View>
           <Switch value={makeDefault} onValueChange={setMakeDefault} trackColor={{ true: colors.primary }} />
         </View>
+        )}
 
         <Pressable
           onPress={save}
@@ -154,6 +210,7 @@ const styles = StyleSheet.create({
   swatch: { width: 34, height: 34, borderRadius: 17 },
   amountWrap: { alignItems: "center", paddingVertical: 4 },
   hint: { fontSize: 12, fontFamily: "Inter_400Regular", lineHeight: 17 },
+  dayRow: { flexDirection: "row", gap: 12 },
   switchRow: { flexDirection: "row", alignItems: "center", gap: 12, padding: 14, borderRadius: 16, borderWidth: 1 },
   switchTitle: { fontSize: 15, fontFamily: "Inter_600SemiBold" },
   save: { paddingVertical: 15, borderRadius: 16, alignItems: "center" },

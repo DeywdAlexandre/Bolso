@@ -62,6 +62,7 @@ export function RecurringForm({ initial, rememberLast, submitLabel, onSubmit, on
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod | undefined>(
     rememberLast ? settings.lastPaymentMethod : initial?.paymentMethod,
   );
+  const isCard = accounts.find((a) => a.id === accountId)?.kind === "card";
 
   const filteredCats = useMemo(() => categories.filter((c) => c.type === type), [categories, type]);
 
@@ -88,7 +89,7 @@ export function RecurringForm({ initial, rememberLast, submitLabel, onSubmit, on
       active,
       isSubscription,
       accountId,
-      paymentMethod,
+      paymentMethod: isCard ? "credit" : paymentMethod === "credit" ? undefined : paymentMethod,
     });
   };
 
