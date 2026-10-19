@@ -15,13 +15,17 @@ export function AmountInput({ value, onChange, type = "expense" }: Props) {
   const accent = type === "income" ? colors.income : colors.expense;
 
   const display = useMemo(() => formatAmountInput(value), [value]);
+  // A fonte diminui com o tamanho do número para ele sempre caber na tela.
+  const fontSize = display.length > 12 ? 34 : display.length > 10 ? 42 : display.length > 8 ? 48 : 56;
 
   return (
     <View style={styles.container}>
       <Text style={[styles.currency, { color: colors.mutedForeground }]}>R$</Text>
       <Pressable style={styles.touchable}>
         <TextInput
-          style={[styles.input, { color: accent }]}
+          // Largura pelo tamanho do texto: sem isso o campo assume a largura padrão do input
+          // (centenas de px) e some da tela quando o contêiner centraliza o conteúdo.
+          style={[styles.input, { color: accent, fontSize, width: Math.max(100, display.length * fontSize * 0.57) }]}
           keyboardType="number-pad"
           value={display}
           onChangeText={(t) => onChange(parseAmountInput(t))}
@@ -35,6 +39,7 @@ export function AmountInput({ value, onChange, type = "expense" }: Props) {
 
 const styles = StyleSheet.create({
   container: {
+    alignSelf: "stretch",
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
@@ -48,12 +53,14 @@ const styles = StyleSheet.create({
   },
   touchable: {
     flexShrink: 1,
+    minWidth: 0,
   },
   input: {
     fontSize: 56,
     fontFamily: "Inter_700Bold",
     textAlign: "left",
     minWidth: 100,
+    maxWidth: "100%",
     padding: 0,
     letterSpacing: -1,
   },
