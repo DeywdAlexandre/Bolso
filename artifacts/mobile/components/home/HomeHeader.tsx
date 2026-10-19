@@ -108,8 +108,8 @@ export function HomeHeader({ showValue, onToggleShowValue, balance, balanceLabel
 
 const styles = StyleSheet.create({
   headerBackground: {
-    borderBottomLeftRadius: 24,
-    borderBottomRightRadius: 24,
+    borderBottomLeftRadius: 28,
+    borderBottomRightRadius: 28,
     paddingHorizontal: 20,
   },
   headerRow: {
