@@ -1,7 +1,7 @@
-import React, { useState } from "react";
+import React, { useRef, useState } from "react";
 import {
   ActivityIndicator,
-  ScrollView,
+  Animated,
   StyleSheet,
   Text,
   View,
@@ -11,7 +11,7 @@ import { useColors } from "@/hooks/useColors";
 import { useSettings } from "@/contexts/SettingsContext";
 import { useAppData } from "@/contexts/AppDataContext";
 
-import { HomeHeader } from "@/components/home/HomeHeader";
+import { HomeHeader, useHomeHeaderHeights } from "@/components/home/HomeHeader";
 import { FinanceWidget } from "@/components/home/FinanceWidget";
 import { AccountsWidget } from "@/components/home/AccountsWidget";
 import { GoalsWidget } from "@/components/home/GoalsWidget";
@@ -42,6 +42,7 @@ export default function HomeScreen() {
   } = useAppData();
 
   const [showValue, setShowValue] = useState(true);
+  const scrollY = useRef(new Animated.Value(0)).current;
 
   if (!ready) {
     return (
@@ -53,6 +54,7 @@ export default function HomeScreen() {
 
   // 1. Abas ativas nas configurações
   const activeTabs = settings.activeTabs || ["index", "finance", "vehicles", "shifts"];
+  const headerHeights = useHomeHeaderHeights(activeTabs.includes("finance"));
 
   // 2. Cálculos consolidados para o Cabeçalho e Widgets
   // Saldo geral: soma das contas (+ "Sem conta"); sem contas cadastradas, o acumulado de sempre
@@ -104,16 +106,19 @@ export default function HomeScreen() {
       <HomeHeader
         showValue={showValue}
         onToggleShowValue={() => setShowValue(!showValue)}
+        scrollY={scrollY}
         balance={activeTabs.includes("finance") ? globalBalance : undefined}
         balanceLabel={balances.hasAccounts ? "Dinheiro em contas" : "Saldo geral"}
         canTransfer={balances.accounts.length >= 2}
       />
 
       {/* Widgets em Scroll */}
-      <ScrollView
+      <Animated.ScrollView
         style={styles.scroll}
-        contentContainerStyle={styles.scrollContent}
+        contentContainerStyle={[styles.scrollContent, { paddingTop: headerHeights.max + 20 }]}
         showsVerticalScrollIndicator={false}
+        onScroll={Animated.event([{ nativeEvent: { contentOffset: { y: scrollY } } }], { useNativeDriver: false })}
+        scrollEventThrottle={16}
       >
         <View style={styles.widgetsContainer}>
           {/* Widget Finanças */}
@@ -181,7 +186,7 @@ export default function HomeScreen() {
             </View>
           )}
         </View>
-      </ScrollView>
+      </Animated.ScrollView>
     </View>
   );
 }
@@ -203,7 +208,6 @@ const styles = StyleSheet.create({
   },
   widgetsContainer: {
     paddingHorizontal: 20,
-    marginTop: 20,
     gap: 20,
   },
   emptyWidget: {
