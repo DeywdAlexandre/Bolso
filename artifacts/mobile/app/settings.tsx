@@ -21,6 +21,7 @@ import { useInstall } from "@/hooks/useInstall";
 import { InstallInstructions } from "@/components/pwa/InstallInstructions";
 
 import { SettingsSection } from "@/components/settings/SettingsSection";
+import { SettingsGroup, SettingsRow } from "@/components/settings/SettingsGroup";
 import { SettingsField } from "@/components/settings/SettingsField";
 import { ThemeSelector } from "@/components/settings/ThemeSelector";
 import { ModelPicker } from "@/components/settings/ModelPicker";
@@ -45,6 +46,8 @@ export default function SettingsScreen() {
     isModelPickerOpen,
     setIsModelPickerOpen,
     handleSave,
+    saveName,
+    nameSaved,
     handleClear,
     setBiometricsEnabled,
   } = useSettingsForm();
@@ -80,6 +83,9 @@ export default function SettingsScreen() {
             <TextInput
               value={nameDraft}
               onChangeText={setNameDraft}
+              onBlur={saveName}
+              onSubmitEditing={saveName}
+              returnKeyType="done"
               placeholder="Como quer ser chamado?"
               placeholderTextColor={colors.mutedForeground}
               style={[
@@ -87,98 +93,57 @@ export default function SettingsScreen() {
                 { color: colors.foreground, backgroundColor: colors.card, borderColor: colors.border }
               ]}
             />
+            {nameSaved ? <Text style={[styles.savedFlag, { color: colors.income, textAlign: "left", marginTop: 0 }]}>✓ Salvo</Text> : null}
           </SettingsField>
         </SettingsSection>
 
         <SettingsSection title="Contas e carteira">
-          <Pressable
-            onPress={() => router.push("/accounts" as any)}
-            style={({ pressed }) => [
-              styles.row,
-              { backgroundColor: colors.card, borderColor: colors.border, opacity: pressed ? 0.7 : 1 },
-            ]}
-          >
-            <View style={[styles.rowIcon, { backgroundColor: colors.primary + "15" }]}>
-              <Feather name="credit-card" size={18} color={colors.primary} />
-            </View>
-            <View style={{ flex: 1 }}>
-              <Text style={[styles.rowTitle, { color: colors.foreground }]}>Bancos e carteira</Text>
-              <Text style={[styles.rowSub, { color: colors.mutedForeground }]}>
-                {balances.hasAccounts
+          <SettingsGroup>
+            <SettingsRow
+              icon="credit-card"
+              title="Bancos e carteira"
+              subtitle={
+                balances.hasAccounts
                   ? `${balances.accounts.length + balances.cards.length} ${balances.accounts.length + balances.cards.length === 1 ? "conta" : "contas"} · ${formatCurrency(balances.total)}`
-                  : "Cadastre quanto você tem em cada banco e na carteira"}
-              </Text>
-            </View>
-            <Feather name="chevron-right" size={20} color={colors.mutedForeground} />
-          </Pressable>
+                  : "Cadastre quanto você tem em cada banco e na carteira"
+              }
+              onPress={() => router.push("/accounts" as any)}
+            />
+          </SettingsGroup>
         </SettingsSection>
 
         <ThemeSelector />
 
-        <SettingsSection title="Personalização">
-          <Pressable
-            onPress={() => router.push("/settings/customize-tabs" as any)}
-            style={({ pressed }) => [
-              styles.row,
-              { backgroundColor: colors.card, borderColor: colors.border, opacity: pressed ? 0.7 : 1 },
-            ]}
-          >
-            <View style={[styles.rowIcon, { backgroundColor: colors.primary + "15" }]}>
-              <Feather name="layout" size={18} color={colors.primary} />
-            </View>
-            <View style={{ flex: 1 }}>
-              <Text style={[styles.rowTitle, { color: colors.foreground }]}>Menu Inferior</Text>
-              <Text style={[styles.rowSub, { color: colors.mutedForeground }]}>
-                Escolher quais abas exibir na barra inferior
-              </Text>
-            </View>
-            <Feather name="chevron-right" size={20} color={colors.mutedForeground} />
-          </Pressable>
-        </SettingsSection>
-
-        <SettingsSection title="Segurança">
-          <View style={[styles.row, { backgroundColor: colors.card, borderColor: colors.border }]}>
-            <View style={[styles.rowIcon, { backgroundColor: colors.primary + "15" }]}>
-              <Feather name="shield" size={18} color={colors.primary} />
-            </View>
-            <View style={{ flex: 1 }}>
-              <Text style={[styles.rowTitle, { color: colors.foreground }]}>Proteção Biométrica</Text>
-              <Text style={[styles.rowSub, { color: colors.mutedForeground }]}>
-                Solicitar digital ou face ao abrir o app
-              </Text>
-            </View>
-            <View style={{ paddingRight: 4 }}>
-              <View 
-                style={{ 
-                  width: 50, 
-                  height: 28, 
-                  borderRadius: 14, 
-                  backgroundColor: settings.biometricsEnabled ? colors.primary : colors.muted,
-                  padding: 2,
-                  justifyContent: 'center',
-                  alignItems: settings.biometricsEnabled ? 'flex-end' : 'flex-start'
-                }}
-              >
-                <Pressable
-                  onPress={() => {
-                    const newState = !settings.biometricsEnabled;
-                    setBiometricsEnabled(newState);
+        <SettingsSection title="Personalização e segurança">
+          <SettingsGroup>
+            <SettingsRow
+              icon="layout"
+              title="Menu Inferior"
+              subtitle="Escolher quais abas exibir na barra inferior"
+              onPress={() => router.push("/settings/customize-tabs" as any)}
+            />
+            <SettingsRow
+              icon="shield"
+              title="Proteção Biométrica"
+              subtitle="Solicitar digital ou face ao abrir o app"
+              onPress={() => setBiometricsEnabled(!settings.biometricsEnabled)}
+              right={
+                <View
+                  style={{
+                    width: 50,
+                    height: 28,
+                    borderRadius: 14,
+                    backgroundColor: settings.biometricsEnabled ? colors.primary : colors.mutedForeground + "66",
+                    padding: 2,
+                    justifyContent: "center",
+                    alignItems: settings.biometricsEnabled ? "flex-end" : "flex-start",
                   }}
-                  style={{ 
-                    width: 24, 
-                    height: 24, 
-                    borderRadius: 12, 
-                    backgroundColor: "#FFF",
-                    shadowColor: "#000",
-                    shadowOffset: { width: 0, height: 2 },
-                    shadowOpacity: 0.2,
-                    shadowRadius: 2,
-                    elevation: 2,
-                  }}
-                />
-              </View>
-            </View>
-          </View>
+                >
+                  <View style={{ width: 24, height: 24, borderRadius: 12, backgroundColor: "#FFF" }} />
+                </View>
+              }
+            />
+          </SettingsGroup>
         </SettingsSection>
 
         <SettingsSection title="Inteligência Artificial">
@@ -248,129 +213,36 @@ export default function SettingsScreen() {
 
         {Platform.OS === "web" && canInstall && (
           <SettingsSection title="Aplicativo">
-            <Pressable
-              onPress={async () => {
-                if (installState === "prompt") await install();
-                else setShowInstallSteps(true);
-              }}
-              style={({ pressed }) => [
-                styles.row,
-                { backgroundColor: colors.card, borderColor: colors.border, opacity: pressed ? 0.7 : 1 },
-              ]}
-            >
-              <View style={[styles.rowIcon, { backgroundColor: colors.primary + "15" }]}>
-                <Feather name="download" size={18} color={colors.primary} />
-              </View>
-              <View style={{ flex: 1 }}>
-                <Text style={[styles.rowTitle, { color: colors.foreground }]}>Instalar aplicativo</Text>
-                <Text style={[styles.rowSub, { color: colors.mutedForeground }]}>
-                  Abre em tela cheia e funciona sem internet
-                </Text>
-              </View>
-              <Feather name="chevron-right" size={20} color={colors.mutedForeground} />
-            </Pressable>
+            <SettingsGroup>
+              <SettingsRow
+                icon="download"
+                title="Instalar aplicativo"
+                subtitle="Abre em tela cheia e funciona sem internet"
+                onPress={async () => {
+                  if (installState === "prompt") await install();
+                  else setShowInstallSteps(true);
+                }}
+              />
+            </SettingsGroup>
           </SettingsSection>
         )}
 
         <SettingsSection title="Dados">
-          <Pressable
-            onPress={() => router.push("/categories")}
-            style={({ pressed }) => [
-              styles.row,
-              { backgroundColor: colors.card, borderColor: colors.border, opacity: pressed ? 0.7 : 1 },
-            ]}
-          >
-            <View style={[styles.rowIcon, { backgroundColor: colors.muted }]}>
-              <Feather name="tag" size={18} color={colors.foreground} />
-            </View>
-            <View style={{ flex: 1 }}>
-              <Text style={[styles.rowTitle, { color: colors.foreground }]}>Categorias</Text>
-              <Text style={[styles.rowSub, { color: colors.mutedForeground }]}>
-                Adicionar e remover categorias
-              </Text>
-            </View>
-            <Feather name="chevron-right" size={20} color={colors.mutedForeground} />
-          </Pressable>
-
-
-          <Pressable
-            onPress={handleExport}
-            style={({ pressed }) => [
-              styles.row,
-              { backgroundColor: colors.card, borderColor: colors.border, opacity: pressed ? 0.7 : 1 },
-            ]}
-          >
-            <View style={[styles.rowIcon, { backgroundColor: colors.primary + "15" }]}>
-              <Feather name="upload" size={18} color={colors.primary} />
-            </View>
-            <View style={{ flex: 1 }}>
-              <Text style={[styles.rowTitle, { color: colors.foreground }]}>Exportar Backup</Text>
-              <Text style={[styles.rowSub, { color: colors.mutedForeground }]}>
-                Salvar todos os seus dados em um arquivo
-              </Text>
-            </View>
-            <Feather name="chevron-right" size={20} color={colors.mutedForeground} />
-          </Pressable>
-
-          <Pressable
-            onPress={handleImport}
-            style={({ pressed }) => [
-              styles.row,
-              { backgroundColor: colors.card, borderColor: colors.border, opacity: pressed ? 0.7 : 1 },
-            ]}
-          >
-            <View style={[styles.rowIcon, { backgroundColor: colors.accent + "15" }]}>
-              <Feather name="download" size={18} color={colors.accent} />
-            </View>
-            <View style={{ flex: 1 }}>
-              <Text style={[styles.rowTitle, { color: colors.foreground }]}>Importar Backup</Text>
-              <Text style={[styles.rowSub, { color: colors.mutedForeground }]}>
-                Restaurar dados de um arquivo salvo
-              </Text>
-            </View>
-            <Feather name="chevron-right" size={20} color={colors.mutedForeground} />
-          </Pressable>
-
-          <Pressable
-            onPress={handleRestoreSnapshot}
-            style={({ pressed }) => [
-              styles.row,
-              { backgroundColor: colors.card, borderColor: colors.border, opacity: pressed ? 0.7 : 1 },
-            ]}
-          >
-            <View style={[styles.rowIcon, { backgroundColor: colors.primary + "15" }]}>
-              <Feather name="rotate-ccw" size={18} color={colors.primary} />
-            </View>
-            <View style={{ flex: 1 }}>
-              <Text style={[styles.rowTitle, { color: colors.foreground }]}>Restaurar cópia automática</Text>
-              <Text style={[styles.rowSub, { color: colors.mutedForeground }]}>
-                O app guarda uma cópia semanal neste aparelho
-              </Text>
-            </View>
-            <Feather name="chevron-right" size={20} color={colors.mutedForeground} />
-          </Pressable>
-
-          <Pressable
-            onPress={handleClear}
-            style={({ pressed }) => [
-              styles.row,
-              {
-                backgroundColor: colors.card,
-                borderColor: colors.border,
-                opacity: pressed ? 0.7 : 1,
-              },
-            ]}
-          >
-            <View style={[styles.rowIcon, { backgroundColor: colors.destructive + "22" }]}>
-              <Feather name="trash-2" size={18} color={colors.destructive} />
-            </View>
-            <View style={{ flex: 1 }}>
-              <Text style={[styles.rowTitle, { color: colors.destructive }]}>Apagar todos os dados</Text>
-              <Text style={[styles.rowSub, { color: colors.mutedForeground }]}>
-                Remove transações e recorrências
-              </Text>
-            </View>
-          </Pressable>
+          <SettingsGroup>
+            <SettingsRow icon="tag" title="Categorias" subtitle="Adicionar e remover categorias" onPress={() => router.push("/categories")} />
+            <SettingsRow icon="upload" title="Exportar Backup" subtitle="Salvar todos os seus dados em um arquivo" onPress={handleExport} />
+            <SettingsRow icon="download" title="Importar Backup" subtitle="Restaurar dados de um arquivo salvo" onPress={handleImport} />
+            <SettingsRow icon="rotate-ccw" title="Restaurar cópia automática" subtitle="O app guarda uma cópia semanal neste aparelho" onPress={handleRestoreSnapshot} />
+          </SettingsGroup>
+          <SettingsGroup>
+            <SettingsRow
+              icon="trash-2"
+              title="Apagar todos os dados"
+              subtitle="Remove transações e recorrências"
+              tone={colors.destructive}
+              onPress={handleClear}
+            />
+          </SettingsGroup>
         </SettingsSection>
 
         <View style={styles.footer}>

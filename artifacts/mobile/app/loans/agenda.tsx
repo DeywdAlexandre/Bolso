@@ -273,8 +273,8 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     height: 140, // Altura suficiente para o header verde
-    borderBottomLeftRadius: 32,
-    borderBottomRightRadius: 32,
+    borderBottomLeftRadius: 28,
+    borderBottomRightRadius: 28,
   },
   healthCard: {
     padding: 20,

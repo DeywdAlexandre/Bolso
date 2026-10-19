@@ -26,6 +26,17 @@ export function useSettingsForm() {
     setModelDraft(settings.model);
   }, [settings.model]);
 
+  const [nameSaved, setNameSaved] = useState(false);
+
+  /** O nome é salvo ao sair do campo, sem depender do botão da IA. */
+  const saveName = async () => {
+    const name = nameDraft.trim();
+    if (name === userName) return;
+    await setUserName(name);
+    setNameSaved(true);
+    setTimeout(() => setNameSaved(false), 2000);
+  };
+
   const handleSave = async () => {
     await setUserName(nameDraft.trim());
     await setApiKey(keyDraft.trim() || null);
@@ -87,6 +98,8 @@ export function useSettingsForm() {
     isModelPickerOpen,
     setIsModelPickerOpen,
     handleSave,
+    saveName,
+    nameSaved,
     handleClear,
     setBiometricsEnabled,
   };
