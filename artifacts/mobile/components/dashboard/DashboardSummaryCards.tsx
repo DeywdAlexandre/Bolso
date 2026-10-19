@@ -12,9 +12,11 @@ interface DashboardSummaryCardsProps {
     balance: number;
   };
   savedAmount: number;
+  /** Dinheiro total nas contas; quando informado, substitui o cartão de Metas. */
+  cashTotal?: number;
 }
 
-export function DashboardSummaryCards({ totals, savedAmount }: DashboardSummaryCardsProps) {
+export function DashboardSummaryCards({ totals, savedAmount, cashTotal }: DashboardSummaryCardsProps) {
   const colors = useColors();
 
   return (
@@ -48,7 +50,7 @@ export function DashboardSummaryCards({ totals, savedAmount }: DashboardSummaryC
       {/* Saldo */}
       <View style={[styles.card, { backgroundColor: colors.card, borderColor: colors.border }]}>
         <View style={styles.cardHeader}>
-          <Text style={[styles.cardLabel, { color: colors.mutedForeground }]}>Balanço do Período</Text>
+          <Text style={[styles.cardLabel, { color: colors.mutedForeground }]}>Balanço</Text>
           <View style={[styles.iconBg, { backgroundColor: colors.foreground + "12" }]}>
             <Feather name="dollar-sign" size={14} color={colors.foreground} />
           </View>
@@ -65,7 +67,7 @@ export function DashboardSummaryCards({ totals, savedAmount }: DashboardSummaryC
 
       {/* Metas */}
       <Pressable
-        onPress={() => router.push("/goals")}
+        onPress={() => router.push((cashTotal !== undefined ? "/accounts" : "/goals") as any)}
         style={({ pressed }) => [
           styles.card,
           {
@@ -76,13 +78,13 @@ export function DashboardSummaryCards({ totals, savedAmount }: DashboardSummaryC
         ]}
       >
         <View style={styles.cardHeader}>
-          <Text style={[styles.cardLabel, { color: colors.mutedForeground }]}>Metas</Text>
+          <Text style={[styles.cardLabel, { color: colors.mutedForeground }]}>{cashTotal !== undefined ? "Em contas" : "Metas"}</Text>
           <View style={[styles.iconBg, { backgroundColor: colors.primary + "12" }]}>
-            <Feather name="target" size={14} color={colors.primary} />
+            <Feather name={cashTotal !== undefined ? "credit-card" : "target"} size={14} color={colors.primary} />
           </View>
         </View>
         <Text style={[styles.cardValue, { color: colors.foreground }]}>
-          {formatCurrency(savedAmount)}
+          {formatCurrency(cashTotal !== undefined ? cashTotal : savedAmount)}
         </Text>
       </Pressable>
     </View>

@@ -54,9 +54,9 @@ export function FinanceWidget({
       {/* Resumos rápidos */}
       <View style={styles.statsContainer}>
         <View style={styles.statBox}>
-          <Text style={[styles.statLabel, { color: colors.mutedForeground }]}>Saldo Atual</Text>
-          <Text numberOfLines={1} style={[styles.statValue, { color: colors.foreground, fontSize: statFontSize(showValue ? formatCurrency(globalBalance) : "") }]}>
-            {showValue ? formatCurrency(globalBalance) : "••••••"}
+          <Text style={[styles.statLabel, { color: colors.mutedForeground }]}>Balanço</Text>
+          <Text numberOfLines={1} style={[styles.statValue, { color: colors.foreground, fontSize: statFontSize(showValue ? formatCurrency(incomeMonth - expenseMonth) : "") }]}>
+            {showValue ? formatCurrency(incomeMonth - expenseMonth) : "••••••"}
           </Text>
         </View>
         <View style={[styles.divider, { backgroundColor: colors.border }]} />

@@ -20,7 +20,7 @@ const colors = {
     secondary: "#f4f4f5",
     secondaryForeground: "#09090b",
     muted: "#f4f4f5",
-    mutedForeground: "#71717a",
+    mutedForeground: "#5f5f68",
     border: "#e4e4e7",
     input: "#f4f4f5",
     text: "#09090b",

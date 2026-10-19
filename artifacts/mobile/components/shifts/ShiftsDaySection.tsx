@@ -33,7 +33,7 @@ export function ShiftsDaySection({ selectedDate, selectedDateStr, shiftsOfSelect
         <Text style={[styles.daySectionTitle, { color: colors.foreground }]}>
           {selectedDate.getDate()} de {MONTHS[selectedDate.getMonth()]}
         </Text>
-        <View style={{ flexDirection: "row", gap: 12 }}>
+        <View style={{ flexDirection: "row", gap: 8 }}>
           <Pressable
             onPress={() => onOpenTemplates()}
             style={({ pressed }) => [styles.rulesBtn, { opacity: pressed ? 0.7 : 1 }]}

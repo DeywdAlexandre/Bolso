@@ -37,7 +37,7 @@ export function AccountsWidget({ balances, showValue }: Props) {
           <View style={{ flex: 1 }}>
             <Text style={[styles.title, { color: colors.foreground }]}>Minhas contas</Text>
             <Text style={[styles.sub, { color: colors.mutedForeground }]}>
-              Cadastre seus bancos e a carteira e veja quanto há em cada um
+              Bancos e carteira: veja quanto há em cada um
             </Text>
           </View>
           <Feather name="chevron-right" size={18} color={colors.mutedForeground} />
