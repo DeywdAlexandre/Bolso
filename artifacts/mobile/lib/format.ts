@@ -159,3 +159,18 @@ export function formatAmountInput(value: number): string {
     maximumFractionDigits: 2,
   }).format(value);
 }
+
+/**
+ * Valor digitado em português: "1.500,50" → 1500.5, "150,5" → 150.5, "1500" → 1500, "1.500" → 1500.
+ * Ponto só é decimal quando não forma grupos de milhar ("150.5" → 150.5). Inválido ou negativo → 0.
+ */
+export function parseDecimalPtBr(raw: string): number {
+  const s = raw.replace(/[^\d.,]/g, "");
+  if (!s) return 0;
+  let normalized: string;
+  if (s.includes(",")) normalized = s.replace(/\./g, "").replace(",", ".");
+  else if (/^\d{1,3}(\.\d{3})+$/.test(s)) normalized = s.replace(/\./g, "");
+  else normalized = s;
+  const n = Number(normalized);
+  return Number.isFinite(n) && n > 0 ? Math.round(n * 100) / 100 : 0;
+}

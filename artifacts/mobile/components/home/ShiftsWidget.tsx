@@ -5,6 +5,7 @@ import { Feather, Ionicons } from "@expo/vector-icons";
 import { router } from "expo-router";
 import { useColors } from "@/hooks/useColors";
 import { formatCurrency, formatDate, fromIsoDay, toIsoDay } from "@/lib/format";
+import { nextShift as nextShiftFrom } from "@/lib/shifts";
 import type { Shift, ShiftRule } from "@/lib/types";
 
 interface ShiftsWidgetProps {
@@ -43,15 +44,8 @@ export function ShiftsWidget({ shifts, shiftRules, showValue }: ShiftsWidgetProp
   }, [currentYear, currentMonthIdx]);
 
   // 2. Achar o próximo plantão
-  const upcomingShifts = [...shifts]
-    .filter((s) => s.date >= todayStr)
-    .sort((a, b) => {
-      const cmp = a.date.localeCompare(b.date);
-      if (cmp !== 0) return cmp;
-      return a.startTime.localeCompare(b.startTime);
-    });
-
-  const nextShift = upcomingShifts[0] || null;
+  // Hoje só vale se o plantão ainda não terminou (um de 07h às 19h some do "próximo" às 20h).
+  const nextShift = nextShiftFrom(shifts, now);
 
   // 3. Calcular ganhos extras do mês atual
   const [currYearNum, currMonthNum] = todayStr.split("-").map(Number);

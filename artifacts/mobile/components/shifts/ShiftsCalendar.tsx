@@ -18,26 +18,39 @@ type Props = {
   onSelectDay: (day: Date) => void;
   onPrevMonth: () => void;
   onNextMonth: () => void;
+  /** Volta para o mês e o dia de hoje; o botão só aparece quando há algo diferente de hoje na tela. */
+  onToday?: () => void;
+  showToday?: boolean;
 };
 
-export function ShiftsCalendar({ currentMonth, daysInMonth, selectedDateStr, shifts, onSelectDay, onPrevMonth, onNextMonth }: Props) {
+export function ShiftsCalendar({ currentMonth, daysInMonth, selectedDateStr, shifts, onSelectDay, onPrevMonth, onNextMonth, onToday, showToday }: Props) {
   const colors = useColors();
 
   return (
     <View style={[styles.calendarCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
       <View style={styles.calendarHeader}>
-        <Pressable onPress={onPrevMonth} hitSlop={12}>
+        <Pressable onPress={onPrevMonth} hitSlop={12} accessibilityLabel="Mês anterior">
           <Feather name="chevron-left" size={20} color={colors.foreground} />
         </Pressable>
         <Text style={[styles.calendarMonthTitle, { color: colors.foreground }]}>
           {MONTHS[currentMonth.getMonth()]} {currentMonth.getFullYear()}
         </Text>
-        <Pressable onPress={onNextMonth} hitSlop={12}>
+        <Pressable onPress={onNextMonth} hitSlop={12} accessibilityLabel="Próximo mês">
           <Feather name="chevron-right" size={20} color={colors.foreground} />
         </Pressable>
       </View>
 
       {/* Dias da semana */}
+      {showToday && onToday ? (
+        <Pressable
+          onPress={onToday}
+          hitSlop={8}
+          style={{ alignSelf: "center", paddingVertical: 4, paddingHorizontal: 12, borderRadius: 10, backgroundColor: colors.primary + "18" }}
+        >
+          <Text style={{ color: colors.primary, fontFamily: "Inter_600SemiBold", fontSize: 12 }}>Ir para hoje</Text>
+        </Pressable>
+      ) : null}
+
       <View style={styles.calendarWeekdays}>
         {WEEKDAYS_SHORT.map((w, idx) => (
           <Text key={idx} style={[styles.weekdayText, { color: colors.mutedForeground }]}>
@@ -143,6 +156,8 @@ export function ShiftsCalendar({ currentMonth, daysInMonth, selectedDateStr, shi
             <Pressable
               key={dateStr}
               onPress={() => onSelectDay(day)}
+              accessibilityLabel={`${day.getDate()} de ${MONTHS[day.getMonth()]}${hasShifts ? `, ${dayShifts.length} ${dayShifts.length === 1 ? "plantão" : "plantões"}` : ""}`}
+              accessibilityState={{ selected: isSelected }}
               style={styles.calendarCell}
             >
               {renderDayBackground()}

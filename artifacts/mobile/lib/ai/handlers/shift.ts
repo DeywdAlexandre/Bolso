@@ -6,7 +6,7 @@ export function buildShiftHandlers(deps: {
   addShift: (s: Omit<Shift, "id" | "createdAt">) => Promise<Shift>;
   updateShift: (id: string, patch: Partial<Shift>) => Promise<void>;
   addShiftRule: (r: Omit<ShiftRule, "id" | "createdAt">) => Promise<ShiftRule>;
-  generateShiftsFromRule: (ruleId: string, limitMonths?: number) => Promise<void>;
+  generateShiftsFromRule: (ruleId: string, limitMonths?: number) => Promise<number>;
   addTransaction: (t: Omit<Transaction, "id" | "createdAt">) => Promise<Transaction>;
   removeTransaction: (id: string) => Promise<void>;
 }) {
@@ -78,11 +78,12 @@ export function buildShiftHandlers(deps: {
         color: "#3b82f6",
       });
 
-      await deps.generateShiftsFromRule(rule.id, 3);
+      const created = await deps.generateShiftsFromRule(rule.id, 3);
 
       return {
         success: true,
-        message: `Escala recorrente '${rule.name}' criada com sucesso! Plantões futuros para os próximos 3 meses foram agendados.`,
+        message: `Escala recorrente '${rule.name}' criada com sucesso! ${created} plantões foram agendados até os próximos 3 meses (a escala é estendida sozinha ao longo do tempo).`,
+        generated: created,
         rule,
       };
     },

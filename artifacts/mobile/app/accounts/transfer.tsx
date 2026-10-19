@@ -18,11 +18,12 @@ export default function TransferScreen() {
   const active = accounts.filter((a) => !a.archived);
   const editing = id ? transfers.find((t) => t.id === id) : undefined;
 
-  const [from, setFrom] = useState<string | undefined>(
-    editing?.fromAccountId ?? (active.some((a) => a.id === fromParam) ? fromParam : active[0]?.id),
-  );
+  const initialFrom = editing?.fromAccountId ?? (active.some((a) => a.id === fromParam) ? fromParam : active[0]?.id);
+  const [from, setFrom] = useState<string | undefined>(initialFrom);
+  // Destino: o pedido, senão a primeira conta diferente da origem (nunca a mesma).
   const [to, setTo] = useState<string | undefined>(
-    editing?.toAccountId ?? (active.some((a) => a.id === toParam) ? toParam : active.find((a) => a.id !== fromParam)?.id ?? active[1]?.id),
+    editing?.toAccountId ??
+      (active.some((a) => a.id === toParam && a.id !== initialFrom) ? toParam : active.find((a) => a.id !== initialFrom)?.id),
   );
   const [amount, setAmount] = useState(editing?.amount ?? (Number(amountParam) > 0 ? Number(amountParam) : 0));
   const [date, setDate] = useState(editing?.date ?? todayIso());

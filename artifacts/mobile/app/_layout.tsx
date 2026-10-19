@@ -21,6 +21,8 @@ import { registerServiceWorker } from "@/lib/pwa";
 import { migrateLegacyStorage } from "@/lib/storage";
 import { PwaBanners } from "@/components/pwa/PwaBanners";
 import { initInstallPrompt } from "@/lib/install";
+import { installWebAlert } from "@/lib/webAlert";
+import { ToastHost } from "@/components/ToastHost";
 import { ChatSheet } from "@/components/ChatSheet";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { AppDataProvider } from "@/contexts/AppDataContext";
@@ -103,6 +105,8 @@ function RootLayoutNav() {
 
 // O evento de instalação pode disparar antes de qualquer tela montar.
 initInstallPrompt();
+// react-native-web ignora Alert.alert: sem isto, validações e confirmações não aparecem no PWA.
+installWebAlert();
 
 export default function RootLayout() {
   const [fontsLoaded, fontError] = useFonts({
@@ -188,6 +192,7 @@ function AppContent() {
                     <RootLayoutNav />
                     <ChatSheet />
                     <PwaBanners />
+                    <ToastHost />
                   </AuthGuard>
                 </ChatProvider>
               </AppDataProvider>

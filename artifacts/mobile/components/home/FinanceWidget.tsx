@@ -16,6 +16,9 @@ interface FinanceWidgetProps {
   showValue: boolean;
 }
 
+/** Valores longos (R$ 12.500,00) encolhem em vez de quebrar em duas linhas nas colunas estreitas. */
+const statFontSize = (text: string) => (text.length > 13 ? 11 : text.length > 11 ? 12.5 : text.length > 9 ? 14 : 15);
+
 export function FinanceWidget({
   globalBalance,
   incomeMonth,
@@ -52,21 +55,21 @@ export function FinanceWidget({
       <View style={styles.statsContainer}>
         <View style={styles.statBox}>
           <Text style={[styles.statLabel, { color: colors.mutedForeground }]}>Saldo Atual</Text>
-          <Text style={[styles.statValue, { color: colors.foreground }]}>
+          <Text numberOfLines={1} style={[styles.statValue, { color: colors.foreground, fontSize: statFontSize(showValue ? formatCurrency(globalBalance) : "") }]}>
             {showValue ? formatCurrency(globalBalance) : "••••••"}
           </Text>
         </View>
         <View style={[styles.divider, { backgroundColor: colors.border }]} />
         <View style={styles.statBox}>
           <Text style={[styles.statLabel, { color: colors.mutedForeground }]}>Ganhos</Text>
-          <Text style={[styles.statValue, { color: colors.income }]}>
+          <Text numberOfLines={1} style={[styles.statValue, { color: colors.income, fontSize: statFontSize(showValue ? formatCurrency(incomeMonth) : "") }]}>
             {showValue ? formatCurrency(incomeMonth) : "••••••"}
           </Text>
         </View>
         <View style={[styles.divider, { backgroundColor: colors.border }]} />
         <View style={styles.statBox}>
           <Text style={[styles.statLabel, { color: colors.mutedForeground }]}>Gastos</Text>
-          <Text style={[styles.statValue, { color: colors.destructive }]}>
+          <Text numberOfLines={1} style={[styles.statValue, { color: colors.destructive, fontSize: statFontSize(showValue ? formatCurrency(expenseMonth) : "") }]}>
             {showValue ? formatCurrency(expenseMonth) : "••••••"}
           </Text>
         </View>

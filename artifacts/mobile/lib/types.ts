@@ -267,6 +267,8 @@ export type ShiftRule = {
   startTime: string; // Ex: "07:00"
   endTime: string;   // Ex: "19:00"
   color?: string;
+  /** Último dia (YYYY-MM-DD) até onde os plantões desta escala já foram gerados. */
+  generatedUntil?: string;
   createdAt: string;
   updatedAt?: string; // ISO
 };

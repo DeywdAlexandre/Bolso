@@ -46,6 +46,15 @@ artifacts/mobile/
   constants/colors.ts            Paleta
 ```
 
+## Escalas e plantões (`lib/shifts.ts`, testado)
+
+- **Geração** (`generateRuleShifts`): semanal (dias marcados) ou ciclo (trabalho + folga). Ciclos múltiplos de 24h (12x36, 24x48) andam em dias de calendário com o horário da escala; os demais (12x24) calculam o horário de cada plantão. Valores inválidos não geram nada (antes um ciclo negativo travava o app).
+- **Sempre à frente**: cada escala guarda `generatedUntil`; ao abrir o app, `planRuleExtension` gera até hoje + 3 meses sem recriar dias que o usuário apagou. Escalas que nunca geraram nada (bug antigo) se consertam sozinhas.
+- `useShiftsState` usa `rulesRef`: a escala recém-criada precisa existir na hora de gerar os plantões (com o estado do render, nada era gerado).
+- **Excluir escala** remove só plantões de hoje em diante e ainda não recebidos; o histórico fica.
+- **Formulário**: `validateShiftForm` (nome, horários HH:MM, dias da semana, horas > 0), `parseDecimalPtBr` para valores ("1.500,50"), `parseHours` (negativo é recusado), aviso de plantão repetido, edição de plantão (`ShiftEditModal`; editar o valor de um plantão já recebido atualiza a receita), cor sempre visível, "Ir para hoje", horas do mês e duração em cada plantão.
+- **Avisos na web**: `Alert.alert` não existe no react-native-web; `lib/webAlert.ts` o substitui (confirmação de sucesso vira toast; erro/validação vira `window.alert`; pergunta vira `window.confirm`).
+
 ## Contas e carteira (`lib/accounts.ts`, testado)
 
 - **Conta** (`Account`): banco, carteira ou poupança, com `initialBalance` em `balanceDate`. Saldo = inicial + lançamentos da conta **a partir dessa data** (os anteriores já estão embutidos). Cadastro em Configurações → Bancos e carteira (`app/accounts`); saldos na tela inicial (`AccountsWidget`).
