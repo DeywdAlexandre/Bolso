@@ -64,11 +64,11 @@ export const styles = StyleSheet.create({
   calendarGrid: {
     flexDirection: "row",
     flexWrap: "wrap",
-    rowGap: 8,
+    rowGap: 2,
   },
   calendarCell: {
     width: `${100 / 7}%`,
-    aspectRatio: 1,
+    height: 42,
     alignItems: "center",
     justifyContent: "center",
   },
@@ -89,8 +89,8 @@ export const styles = StyleSheet.create({
     alignItems: "center",
   },
   daySectionTitle: { fontSize: 16, fontFamily: "Inter_700Bold" },
-  rulesBtn: { flexDirection: "row", alignItems: "center", gap: 4, padding: 4 },
-  rulesBtnText: { fontSize: 12, fontFamily: "Inter_600SemiBold" },
+  rulesBtn: { flexDirection: "row", alignItems: "center", gap: 5, paddingVertical: 7, paddingHorizontal: 10, borderRadius: 12, backgroundColor: "rgba(0,200,120,0.12)" },
+  rulesBtnText: { fontSize: 13, fontFamily: "Inter_600SemiBold" },
   emptyCard: {
     padding: 32,
     borderRadius: 20,

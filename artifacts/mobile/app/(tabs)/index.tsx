@@ -104,6 +104,9 @@ export default function HomeScreen() {
       <HomeHeader
         showValue={showValue}
         onToggleShowValue={() => setShowValue(!showValue)}
+        balance={activeTabs.includes("finance") ? globalBalance : undefined}
+        balanceLabel={balances.hasAccounts ? "Dinheiro em contas" : "Saldo geral"}
+        canTransfer={balances.accounts.length >= 2}
       />
 
       {/* Widgets em Scroll */}
@@ -200,7 +203,7 @@ const styles = StyleSheet.create({
   },
   widgetsContainer: {
     paddingHorizontal: 20,
-    marginTop: -12, // Sobrepõe suavemente os widgets no cabeçalho arredondado
+    marginTop: 20,
     gap: 20,
   },
   emptyWidget: {

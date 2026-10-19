@@ -36,6 +36,33 @@ export function VehiclesWidget({
 
   const activeVehicles = vehicles.slice(0, 2);
 
+  if (vehicles.length === 0) {
+    return (
+      <Pressable
+        onPress={() => router.push("/vehicles")}
+        style={({ pressed }) => [
+          styles.card,
+          { backgroundColor: colors.card, borderColor: colors.border, opacity: pressed ? 0.85 : 1 },
+        ]}
+      >
+        <View style={styles.header}>
+          <View style={[styles.titleContainer, { flex: 1 }]}>
+            <View style={[styles.iconBox, { backgroundColor: colors.primary + "12" }]}>
+              <Ionicons name="car-sport-outline" size={20} color={colors.primary} />
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={[styles.title, { color: colors.foreground }]}>Veículos</Text>
+              <Text style={[styles.emptyText, { color: colors.mutedForeground, textAlign: "left", paddingVertical: 0 }]}>
+                Acompanhe consumo e óleo
+              </Text>
+            </View>
+          </View>
+          <Feather name="plus-circle" size={20} color={colors.primary} />
+        </View>
+      </Pressable>
+    );
+  }
+
   return (
     <View style={[styles.card, { backgroundColor: colors.card, borderColor: colors.border }]}>
       {/* Header */}
