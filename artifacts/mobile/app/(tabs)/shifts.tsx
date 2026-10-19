@@ -14,14 +14,19 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { useAppData } from "@/contexts/AppDataContext";
 import { useColors } from "@/hooks/useColors";
-import { formatCurrency, toIsoDay } from "@/lib/format";
+import { formatCurrency, parseDecimalPtBr, toIsoDay } from "@/lib/format";
+import { findDuplicateShift, formatHours, monthStats, normalizeTime, parseHours, validateShiftForm } from "@/lib/shifts";
 import type { Shift, ShiftRecurrenceType, ShiftTemplate } from "@/lib/types";
 import { MONTHS, PRESETS_COLORS, WEEKDAYS_SHORT } from "@/components/shifts/constants";
+import { ShiftEditModal } from "@/components/shifts/ShiftEditModal";
 import { ShiftRulesModal } from "@/components/shifts/ShiftRulesModal";
 import { ShiftTemplatesModal } from "@/components/shifts/ShiftTemplatesModal";
 import { ShiftsCalendar } from "@/components/shifts/ShiftsCalendar";
 import { ShiftsDaySection } from "@/components/shifts/ShiftsDaySection";
 import { styles } from "@/components/shifts/styles";
+
+/** Valores longos encolhem para caber nas quatro colunas do resumo do mês. */
+const statFont = (text: string) => (text.length > 10 ? 11 : text.length > 8 ? 12.5 : 15);
 
 export default function ShiftsScreen() {
   const colors = useColors();
@@ -37,6 +42,7 @@ export default function ShiftsScreen() {
     removeShiftRule,
     generateShiftsFromRule,
     addTransaction,
+    updateTransaction,
     removeTransaction,
     addShiftTemplate,
     removeShiftTemplate,
@@ -53,6 +59,7 @@ export default function ShiftsScreen() {
   const [isRulesModalOpen, setIsRulesModalOpen] = useState(false);
   const [isTemplatesModalOpen, setIsTemplatesModalOpen] = useState(false);
   const [isNewTemplateModalOpen, setIsNewTemplateModalOpen] = useState(false);
+  const [editingShift, setEditingShift] = useState<Shift | null>(null);
 
   // Estados do Formulário de Plantão/Regra
   const [formMode, setFormMode] = useState<"single" | "recurrent">("single");
@@ -106,83 +113,100 @@ export default function ShiftsScreen() {
   }, [selectedDate]);
 
   // Filtros de Escalas
-  const shiftsOfMonth = useMemo(() => {
-    const monthPrefix = `${currentMonth.getFullYear()}-${String(currentMonth.getMonth() + 1).padStart(2, "0")}`;
-    return shifts.filter(s => s.date.startsWith(monthPrefix));
-  }, [shifts, currentMonth]);
-
   const shiftsOfSelectedDay = useMemo(() => {
     return shifts.filter(s => s.date === selectedDateStr);
   }, [shifts, selectedDateStr]);
 
-  // Estatísticas do mês
-  const monthlyStats = useMemo(() => {
-    let extraTotal = 0;
-    let extraPaid = 0;
-    let countOrdinary = 0;
-    let countExtra = 0;
-
-    shiftsOfMonth.forEach(s => {
-      if (s.type === "ordinary") {
-        countOrdinary++;
-      } else {
-        countExtra++;
-        const val = s.value || 0;
-        extraTotal += val;
-        if (s.isPaid) extraPaid += val;
-      }
-    });
-
-    return { extraTotal, extraPaid, countOrdinary, countExtra };
-  }, [shiftsOfMonth]);
+  // Estatísticas do mês (quantidade, extras recebidos/a receber e horas)
+  const monthlyStats = useMemo(
+    () => monthStats(shifts, `${currentMonth.getFullYear()}-${String(currentMonth.getMonth() + 1).padStart(2, "0")}`),
+    [shifts, currentMonth],
+  );
 
   // Salvar nova Escala / Regra
   const handleSaveShift = async () => {
-    if (!formName.trim()) {
-      Alert.alert("Erro", "Por favor, digite o nome do serviço.");
+    const workHours = parseHours(formWorkHours);
+    const offHours = formOffHours.trim() === "" ? 0 : parseHours(formOffHours);
+    const error = validateShiftForm({
+      name: formName,
+      startTime: formStartTime,
+      endTime: formEndTime,
+      recurrence:
+        formMode === "recurrent"
+          ? formRecurrenceType === "weekly"
+            ? { type: "weekly", weekDays: formWeekDays }
+            : { type: "rotative", workHours, offHours }
+          : undefined,
+    });
+    if (error) {
+      Alert.alert("Confira os dados", error);
       return;
     }
 
-    const valueNum = formType === "extra" ? parseFloat(formValue) || 0 : undefined;
+    const startTime = normalizeTime(formStartTime)!;
+    const endTime = normalizeTime(formEndTime)!;
+    const valueNum = formType === "extra" ? parseDecimalPtBr(formValue) : undefined;
+    const name = formName.trim();
 
     if (formMode === "single") {
-      // Plantão avulso
+      if (findDuplicateShift(shifts, { date: selectedDateStr, name, startTime })) {
+        Alert.alert("Plantão repetido", `Já existe "${name}" às ${startTime} neste dia.`);
+        return;
+      }
       await addShift({
-        name: formName,
+        name,
         type: formType,
         value: valueNum,
         date: selectedDateStr,
-        startTime: formStartTime,
-        endTime: formEndTime,
+        startTime,
+        endTime,
         color: formColor,
         isPaid: false,
       });
-      Alert.alert("Sucesso", "Plantão avulso adicionado.");
+      Alert.alert("Sucesso", "Plantão adicionado.");
     } else {
-      // Escala Recorrente
       const rule = await addShiftRule({
-        name: formName,
+        name,
         type: formType,
         value: valueNum,
         recurrenceType: formRecurrenceType,
-        workHours: formRecurrenceType === "rotative" ? parseFloat(formWorkHours) || 12 : undefined,
-        offHours: formRecurrenceType === "rotative" ? parseFloat(formOffHours) || 36 : undefined,
+        workHours: formRecurrenceType === "rotative" ? workHours : undefined,
+        offHours: formRecurrenceType === "rotative" ? offHours : undefined,
         startDate: selectedDateStr,
         weekDays: formRecurrenceType === "weekly" ? formWeekDays : undefined,
-        startTime: formStartTime,
-        endTime: formEndTime,
+        startTime,
+        endTime,
         color: formColor,
       });
 
-      // Gera os plantões automaticamente para os próximos 3 meses
-      await generateShiftsFromRule(rule.id, 3);
-      Alert.alert("Sucesso", "Escala recorrente criada e plantões futuros gerados.");
+      // Gera os plantões dos próximos meses; a escala é estendida sozinha depois.
+      const created = await generateShiftsFromRule(rule.id, 3);
+      Alert.alert("Sucesso", `Escala criada: ${created} plantões agendados nos próximos 3 meses.`);
     }
 
-    // Reset formulário
+    // Reset formulário (a próxima vez abre no modo avulso)
     setFormName("");
     setFormValue("");
+    setFormMode("single");
     setIsNewModalOpen(false);
+  };
+
+  // Salvar edição de um plantão (só esta data)
+  const handleEditShift = async (
+    id: string,
+    patch: Pick<Shift, "name" | "type" | "value" | "startTime" | "endTime">,
+  ) => {
+    const current = shifts.find((s) => s.id === id);
+    await updateShift(id, patch);
+    // Plantão já recebido: o valor lançado no extrato acompanha a mudança.
+    if (current?.isPaid && current.transactionId && patch.value !== current.value) {
+      await updateTransaction(current.transactionId, {
+        amount: patch.value ?? 0,
+        description: `Escala Extra: ${patch.name}`,
+      });
+    }
+    setEditingShift(null);
+    Alert.alert("Sucesso", "Plantão atualizado.");
   };
 
   // Toggle marcar como Pago/Recebido (para plantão extra)
@@ -264,19 +288,18 @@ export default function ShiftsScreen() {
   };
 
   const handleSaveTemplate = async () => {
-    if (!templateName.trim()) {
-      Alert.alert("Erro", "Por favor, digite o nome do modelo.");
+    const error = validateShiftForm({ name: templateName, startTime: templateStartTime, endTime: templateEndTime });
+    if (error) {
+      Alert.alert("Confira os dados", error);
       return;
     }
-
-    const valueNum = templateType === "extra" ? parseFloat(templateValue) || 0 : undefined;
 
     await addShiftTemplate({
       name: templateName.trim(),
       type: templateType,
-      value: valueNum,
-      startTime: templateStartTime,
-      endTime: templateEndTime,
+      value: templateType === "extra" ? parseDecimalPtBr(templateValue) : undefined,
+      startTime: normalizeTime(templateStartTime)!,
+      endTime: normalizeTime(templateEndTime)!,
       color: templateColor,
     });
 
@@ -287,6 +310,10 @@ export default function ShiftsScreen() {
   };
 
   const handleApplyTemplateToDate = async (template: ShiftTemplate, dateStr: string) => {
+    if (findDuplicateShift(shifts, { date: dateStr, name: template.name, startTime: template.startTime })) {
+      Alert.alert("Plantão repetido", `"${template.name}" já está neste dia.`);
+      return;
+    }
     await addShift({
       name: template.name,
       type: template.type,
@@ -337,9 +364,9 @@ export default function ShiftsScreen() {
       <View style={[styles.headerBackground, { backgroundColor: colors.primary, height: topPad + 140 }]} />
 
       <View style={[styles.header, { paddingTop: topPad + 12 }]}>
-        <View>
+        <View style={{ flex: 1, minWidth: 0 }}>
           <Text style={[styles.subtitle, { color: colors.primaryForeground + "cc" }]}>Minhas Escalas</Text>
-          <Text style={[styles.title, { color: colors.primaryForeground }]}>Agenda de Serviços</Text>
+          <Text numberOfLines={1} style={[styles.title, { color: colors.primaryForeground }]}>Agenda de Serviços</Text>
         </View>
         <View style={styles.headerBadge}>
           <Text style={[styles.badgeLabel, { color: colors.primaryForeground + "aa" }]}>Extras (Mês)</Text>
@@ -358,12 +385,17 @@ export default function ShiftsScreen() {
           </View>
           <View style={styles.statDivider} />
           <View style={styles.statBox}>
-            <Text style={[styles.statNum, { color: colors.income }]}>{formatCurrency(monthlyStats.extraPaid)}</Text>
+            <Text style={[styles.statNum, { color: colors.foreground }]}>{formatHours(monthlyStats.hours)}</Text>
+            <Text style={[styles.statLabel, { color: colors.mutedForeground }]}>Horas</Text>
+          </View>
+          <View style={styles.statDivider} />
+          <View style={styles.statBox}>
+            <Text numberOfLines={1} style={[styles.statNum, { color: colors.income, fontSize: statFont(formatCurrency(monthlyStats.extraPaid)) }]}>{formatCurrency(monthlyStats.extraPaid)}</Text>
             <Text style={[styles.statLabel, { color: colors.mutedForeground }]}>Recebidos</Text>
           </View>
           <View style={styles.statDivider} />
           <View style={styles.statBox}>
-            <Text style={[styles.statNum, { color: colors.expense }]}>{formatCurrency(monthlyStats.extraTotal - monthlyStats.extraPaid)}</Text>
+            <Text numberOfLines={1} style={[styles.statNum, { color: colors.expense, fontSize: statFont(formatCurrency(monthlyStats.extraTotal - monthlyStats.extraPaid)) }]}>{formatCurrency(monthlyStats.extraTotal - monthlyStats.extraPaid)}</Text>
             <Text style={[styles.statLabel, { color: colors.mutedForeground }]}>A receber</Text>
           </View>
         </View>
@@ -376,6 +408,16 @@ export default function ShiftsScreen() {
           onSelectDay={setSelectedDate}
           onPrevMonth={prevMonth}
           onNextMonth={nextMonth}
+          showToday={
+            selectedDateStr !== toIsoDay(new Date()) ||
+            currentMonth.getMonth() !== new Date().getMonth() ||
+            currentMonth.getFullYear() !== new Date().getFullYear()
+          }
+          onToday={() => {
+            const now = new Date();
+            setSelectedDate(now);
+            setCurrentMonth(new Date(now.getFullYear(), now.getMonth(), 1));
+          }}
         />
 
         <ShiftsDaySection
@@ -392,12 +434,18 @@ export default function ShiftsScreen() {
           onApplyTemplate={handleApplyTemplateToDate}
           onTogglePaid={handleTogglePaid}
           onDeleteShift={handleDeleteShift}
+          onEditShift={setEditingShift}
         />
       </ScrollView>
 
       {/* FAB de adicionar */}
       <Pressable
-        onPress={() => setIsNewModalOpen(true)}
+        testID="fab-add-shift"
+        accessibilityLabel="Adicionar plantão ou escala"
+        onPress={() => {
+          setFormMode("single");
+          setIsNewModalOpen(true);
+        }}
         style={[styles.fab, { backgroundColor: colors.primary, bottom: insets.bottom + 12 }]}
       >
         <Feather name="plus" size={24} color={colors.primaryForeground} />
@@ -421,7 +469,7 @@ export default function ShiftsScreen() {
                   onPress={() => setFormMode("single")}
                   style={[styles.toggleBtn, formMode === "single" && { backgroundColor: colors.card }]}
                 >
-                  <Text style={[styles.toggleText, { color: colors.foreground }]}>Avulso (Hoje)</Text>
+                  <Text style={[styles.toggleText, { color: colors.foreground }]}>Avulso ({selectedDateStr.slice(8, 10)}/{selectedDateStr.slice(5, 7)})</Text>
                 </Pressable>
                 <Pressable
                   onPress={() => setFormMode("recurrent")}
@@ -602,26 +650,26 @@ export default function ShiftsScreen() {
                       </View>
                     </View>
                   )}
-
-                  {/* Cores Preset */}
-                  <View style={styles.inputContainer}>
-                    <Text style={[styles.inputLabel, { color: colors.mutedForeground }]}>Cor de Destaque</Text>
-                    <View style={styles.colorPalette}>
-                      {PRESETS_COLORS.map((c) => (
-                        <Pressable
-                          key={c}
-                          onPress={() => setFormColor(c)}
-                          style={[
-                            styles.colorBubble,
-                            { backgroundColor: c },
-                            formColor === c && { borderWidth: 2, borderColor: colors.foreground }
-                          ]}
-                        />
-                      ))}
-                    </View>
-                  </View>
                 </View>
               )}
+
+              {/* Cores Preset */}
+              <View style={styles.inputContainer}>
+                <Text style={[styles.inputLabel, { color: colors.mutedForeground }]}>Cor de Destaque</Text>
+                <View style={styles.colorPalette}>
+                  {PRESETS_COLORS.map((c) => (
+                    <Pressable
+                      key={c}
+                      onPress={() => setFormColor(c)}
+                      style={[
+                        styles.colorBubble,
+                        { backgroundColor: c },
+                        formColor === c && { borderWidth: 2, borderColor: colors.foreground }
+                      ]}
+                    />
+                  ))}
+                </View>
+              </View>
 
               <Pressable
                 onPress={handleSaveShift}
@@ -633,6 +681,8 @@ export default function ShiftsScreen() {
           </View>
         </View>
       </Modal>
+
+      <ShiftEditModal shift={editingShift} onClose={() => setEditingShift(null)} onSave={handleEditShift} />
 
       <ShiftRulesModal
         visible={isRulesModalOpen}

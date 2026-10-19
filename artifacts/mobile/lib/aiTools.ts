@@ -64,7 +64,7 @@ export type ToolDeps = {
   addShift: (s: Omit<Shift, "id" | "createdAt">) => Promise<Shift>;
   updateShift: (id: string, patch: Partial<Shift>) => Promise<void>;
   addShiftRule: (r: Omit<ShiftRule, "id" | "createdAt">) => Promise<ShiftRule>;
-  generateShiftsFromRule: (ruleId: string, limitMonths?: number) => Promise<void>;
+  generateShiftsFromRule: (ruleId: string, limitMonths?: number) => Promise<number>;
 };
 
 export function buildToolHandlers(deps: ToolDeps) {

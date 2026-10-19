@@ -61,7 +61,7 @@ export function ShiftRulesModal({ visible, shiftRules, onClose, onDeleteRule }: 
                         </Text>
                       )}
                     </View>
-                    <Pressable onPress={() => onDeleteRule(item.id)} hitSlop={12}>
+                    <Pressable onPress={() => onDeleteRule(item.id)} hitSlop={12} accessibilityLabel={`Excluir escala ${item.name}`}>
                       <Feather name="trash-2" size={18} color={colors.destructive} />
                     </Pressable>
                   </View>

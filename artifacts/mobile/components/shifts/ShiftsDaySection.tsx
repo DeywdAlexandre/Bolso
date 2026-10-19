@@ -4,6 +4,7 @@ import { Feather } from "@expo/vector-icons";
 
 import { useColors } from "@/hooks/useColors";
 import { formatCurrency } from "@/lib/format";
+import { formatHours, shiftHours } from "@/lib/shifts";
 import type { Shift, ShiftTemplate } from "@/lib/types";
 
 import { MONTHS } from "./constants";
@@ -20,9 +21,10 @@ type Props = {
   onApplyTemplate: (template: ShiftTemplate, dateStr: string) => void;
   onTogglePaid: (shift: Shift) => void;
   onDeleteShift: (id: string) => void;
+  onEditShift: (shift: Shift) => void;
 };
 
-export function ShiftsDaySection({ selectedDate, selectedDateStr, shiftsOfSelectedDay, shiftTemplates, onOpenTemplates, onOpenRules, onAddSingle, onApplyTemplate, onTogglePaid, onDeleteShift }: Props) {
+export function ShiftsDaySection({ selectedDate, selectedDateStr, shiftsOfSelectedDay, shiftTemplates, onOpenTemplates, onOpenRules, onAddSingle, onApplyTemplate, onTogglePaid, onDeleteShift, onEditShift }: Props) {
   const colors = useColors();
 
   return (
@@ -112,7 +114,7 @@ export function ShiftsDaySection({ selectedDate, selectedDateStr, shiftsOfSelect
                 <View style={styles.shiftDetails}>
                   <Text style={[styles.shiftName, { color: colors.foreground }]}>{s.name}</Text>
                   <Text style={[styles.shiftTime, { color: colors.mutedForeground }]}>
-                    <Feather name="clock" size={12} /> {s.startTime} às {s.endTime}
+                    <Feather name="clock" size={12} /> {s.startTime} às {s.endTime} · {formatHours(shiftHours(s.startTime, s.endTime))}
                   </Text>
                   {isExtra && (
                     <Text style={[styles.shiftValue, { color: colors.income }]}>
@@ -138,7 +140,11 @@ export function ShiftsDaySection({ selectedDate, selectedDateStr, shiftsOfSelect
                   </Pressable>
                 )}
 
-                <Pressable onPress={() => onDeleteShift(s.id)} hitSlop={12} style={styles.deleteShiftBtn}>
+                <Pressable onPress={() => onEditShift(s)} hitSlop={12} style={styles.deleteShiftBtn} accessibilityLabel={`Editar ${s.name}`}>
+                  <Feather name="edit-2" size={16} color={colors.mutedForeground} />
+                </Pressable>
+
+                <Pressable onPress={() => onDeleteShift(s.id)} hitSlop={12} style={styles.deleteShiftBtn} accessibilityLabel={`Excluir ${s.name}`}>
                   <Feather name="trash-2" size={16} color={colors.destructive} />
                 </Pressable>
               </View>

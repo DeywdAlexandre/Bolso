@@ -1,5 +1,6 @@
-import { useState, useEffect, useCallback } from "react";
-import { genId, localDayStart, toIsoDay } from "@/lib/format";
+import { useState, useEffect, useCallback, useRef } from "react";
+import { genId, toIsoDay } from "@/lib/format";
+import { generateRuleShifts, horizonDay, planRuleExtension, shiftsAfterRuleRemoval } from "@/lib/shifts";
 import { saveJson, STORAGE_KEYS, loadJson } from "@/lib/storage";
 import type { Shift, ShiftRule, ShiftTemplate } from "@/lib/types";
 
@@ -8,6 +9,15 @@ export function useShiftsState() {
   const [shifts, setShifts] = useState<Shift[]>([]);
   const [shiftRules, setShiftRules] = useState<ShiftRule[]>([]);
   const [shiftTemplates, setShiftTemplates] = useState<ShiftTemplate[]>([]);
+  // Sempre a lista de escalas mais recente: quem cria uma escala e gera os plantões na sequência
+  // (antes, com o estado do render, a escala recém-criada "não existia" e nada era gerado).
+  const rulesRef = useRef<ShiftRule[]>([]);
+  const setRules = useCallback((updater: (prev: ShiftRule[]) => ShiftRule[]) => {
+    const next = updater(rulesRef.current);
+    rulesRef.current = next;
+    setShiftRules(next);
+    void saveJson(STORAGE_KEYS.shiftRules, next);
+  }, []);
 
   // Carregamento inicial do armazenamento local
   useEffect(() => {
@@ -19,8 +29,28 @@ export function useShiftsState() {
       ]);
 
       setShifts(shs);
+      rulesRef.current = shRules;
       setShiftRules(shRules);
       setShiftTemplates(shTemps || []);
+
+      // Mantém as escalas recorrentes geradas à frente (e conserta as que nunca geraram nada).
+      const today = toIsoDay(new Date());
+      let nextShifts = shs;
+      const nextRules = shRules.map((rule) => {
+        const plan = planRuleExtension(rule, nextShifts, today);
+        if (!plan) return rule;
+        nextShifts = [...nextShifts, ...plan.shifts];
+        return { ...rule, generatedUntil: plan.generatedUntil };
+      });
+      if (nextShifts !== shs) {
+        setShifts(nextShifts);
+        void saveJson(STORAGE_KEYS.shifts, nextShifts);
+      }
+      if (nextRules.some((r, i) => r !== shRules[i])) {
+        rulesRef.current = nextRules;
+        setShiftRules(nextRules);
+        void saveJson(STORAGE_KEYS.shiftRules, nextRules);
+      }
       setReady(true);
     })();
   }, []);
@@ -33,35 +63,24 @@ export function useShiftsState() {
       createdAt: now,
       updatedAt: now,
     };
-    setShiftRules((prev) => {
-      const next = [rule, ...prev];
-      void saveJson(STORAGE_KEYS.shiftRules, next);
-      return next;
-    });
+    setRules((prev) => [rule, ...prev]);
     return rule;
-  }, []);
+  }, [setRules]);
 
   const updateShiftRule = useCallback(async (id: string, patch: Partial<ShiftRule>) => {
     const now = new Date().toISOString();
-    setShiftRules((prev) => {
-      const next = prev.map((r) => (r.id === id ? { ...r, ...patch, updatedAt: now } : r));
-      void saveJson(STORAGE_KEYS.shiftRules, next);
-      return next;
-    });
-  }, []);
+    setRules((prev) => prev.map((r) => (r.id === id ? { ...r, ...patch, updatedAt: now } : r)));
+  }, [setRules]);
 
   const removeShiftRule = useCallback(async (id: string) => {
-    setShiftRules((prev) => {
-      const next = prev.filter((r) => r.id !== id);
-      void saveJson(STORAGE_KEYS.shiftRules, next);
-      return next;
-    });
+    setRules((prev) => prev.filter((r) => r.id !== id));
+    // Só os plantões futuros e ainda não recebidos saem; o histórico fica.
     setShifts((prev) => {
-      const next = prev.filter((s) => s.ruleId !== id || s.isPaid || s.transactionId);
+      const next = shiftsAfterRuleRemoval(prev, id, toIsoDay(new Date()));
       void saveJson(STORAGE_KEYS.shifts, next);
       return next;
     });
-  }, []);
+  }, [setRules]);
 
   const addShiftRaw = useCallback(async (shift: Shift) => {
     const shWithUpdate = shift.updatedAt ? shift : { ...shift, updatedAt: shift.createdAt };
@@ -101,85 +120,26 @@ export function useShiftsState() {
     });
   }, []);
 
+  /** Gera os plantões da escala até `limitMonths` à frente e devolve quantos foram criados. */
   const generateShiftsFromRule = useCallback(async (ruleId: string, limitMonths = 3) => {
-    const rule = shiftRules.find(r => r.id === ruleId);
-    if (!rule) return;
+    const rule = rulesRef.current.find((r) => r.id === ruleId);
+    if (!rule) return 0;
 
-    const newShifts: Shift[] = [];
-    const limitDate = new Date();
-    limitDate.setMonth(limitDate.getMonth() + limitMonths);
-
-    const startTime = rule.startTime;
-    const endTime = rule.endTime;
-    const name = rule.name;
-    const type = rule.type;
-    const value = rule.value;
-    const color = rule.color;
-
-    if (rule.recurrenceType === "weekly") {
-      const weekDays = rule.weekDays || [];
-      let current = localDayStart(rule.startDate);
-      while (current <= limitDate) {
-        if (weekDays.includes(current.getDay())) {
-          const dateStr = toIsoDay(current);
-          newShifts.push({
-            id: "sh_" + genId(),
-            ruleId: rule.id,
-            name,
-            type,
-            value,
-            date: dateStr,
-            startTime,
-            endTime,
-            color,
-            createdAt: new Date().toISOString(),
-            updatedAt: new Date().toISOString(),
-          });
-        }
-        current.setDate(current.getDate() + 1);
-      }
-    } else if (rule.recurrenceType === "rotative") {
-      const workHours = rule.workHours || 12;
-      const offHours = rule.offHours || 36;
-      const cycleHours = workHours + offHours;
-
-      let current = localDayStart(rule.startDate);
-      while (current <= limitDate) {
-        const dateStr = toIsoDay(current);
-        newShifts.push({
-          id: "sh_" + genId(),
-          ruleId: rule.id,
-          name,
-          type,
-          value,
-          date: dateStr,
-          startTime,
-          endTime,
-          color,
-          createdAt: new Date().toISOString(),
-          updatedAt: new Date().toISOString(),
-        });
-        current.setTime(current.getTime() + cycleHours * 60 * 60 * 1000);
-      }
-    }
+    const until = horizonDay(toIsoDay(new Date()), limitMonths);
+    const generated = generateRuleShifts(rule, { until });
+    let created = 0;
 
     setShifts((prev) => {
-      const ruleShifts = prev.filter(s => s.ruleId === rule.id);
-      const otherShifts = prev.filter(s => s.ruleId !== rule.id);
-
-      const mergedRuleShifts = [...ruleShifts];
-      newShifts.forEach(ns => {
-        const exists = mergedRuleShifts.find(s => s.date === ns.date);
-        if (!exists) {
-          mergedRuleShifts.push(ns);
-        }
-      });
-
-      const next = [...otherShifts, ...mergedRuleShifts];
+      const have = new Set(prev.filter((s) => s.ruleId === rule.id).map((s) => s.date));
+      const fresh = generated.filter((s) => !have.has(s.date));
+      created = fresh.length;
+      const next = [...prev, ...fresh];
       void saveJson(STORAGE_KEYS.shifts, next);
       return next;
     });
-  }, [shiftRules]);
+    setRules((prev) => prev.map((r) => (r.id === rule.id ? { ...r, generatedUntil: until } : r)));
+    return created;
+  }, [setRules]);
 
   const addShiftTemplate = useCallback(async (input: Omit<ShiftTemplate, "id" | "createdAt" | "updatedAt">) => {
     const newTemplate: ShiftTemplate = {
@@ -217,6 +177,7 @@ export function useShiftsState() {
   // Métodos de limpeza e importação de estado
   const clearState = useCallback(async () => {
     setShifts([]);
+    rulesRef.current = [];
     setShiftRules([]);
     setShiftTemplates([]);
     await Promise.all([
@@ -236,6 +197,7 @@ export function useShiftsState() {
       await saveJson(STORAGE_KEYS.shifts, data.shifts);
     }
     if (data.shiftRules) {
+      rulesRef.current = data.shiftRules;
       setShiftRules(data.shiftRules);
       await saveJson(STORAGE_KEYS.shiftRules, data.shiftRules);
     }

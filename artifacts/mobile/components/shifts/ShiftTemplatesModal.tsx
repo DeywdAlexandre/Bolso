@@ -67,7 +67,7 @@ export function ShiftTemplatesModal({ visible, shiftTemplates, onClose, onNewTem
                       </Text>
                     )}
                   </View>
-                  <Pressable onPress={() => onDeleteTemplate(item.id)} hitSlop={12}>
+                  <Pressable onPress={() => onDeleteTemplate(item.id)} hitSlop={12} accessibilityLabel={`Excluir modelo ${item.name}`}>
                     <Feather name="trash-2" size={18} color={colors.destructive} />
                   </Pressable>
                 </View>

@@ -50,6 +50,15 @@ O **Prisma** é um assistente financeiro pessoal "Offline-First" com inteligênc
 - **Correção**: histórico do chat podia começar com mensagem de ferramenta órfã após o corte de 50 mensagens, causando erro na API; agora sempre inicia em uma mensagem do usuário.
 - **Docs**: `replit.md`, `agente.md` e skills atualizados.
 
+### Revisão da aba Escalas (out/2026)
+- **Bug grave**: criar escala recorrente (12x36) não gerava nenhum plantão (lista de escalas desatualizada ao gerar). Corrigido; escalas antigas vazias se consertam ao abrir o app.
+- Escalas agora são estendidas sozinhas (3 meses à frente); excluir escala preserva o histórico (o aviso já prometia isso).
+- Valor "1.500,50" era salvo como 1,5; horas negativas travavam o app; horários sem validação.
+- **Web**: `Alert.alert` não funcionava no PWA em todo o app (validações e confirmações invisíveis) — adaptador em `lib/webAlert.ts` + toasts.
+- Edição de plantão, plantão repetido barrado, horas do mês, "Ir para hoje", próximo plantão que ignora os já terminados, rótulos de acessibilidade.
+- Correções de layout: campo de valor saía da tela em contas/transferência/limite (`AmountInput`); valores quebravam em duas linhas na tela inicial e no resumo das Escalas; transferência abria com origem = destino.
+- Ideias não feitas: exportar agenda (.ics), lembretes (só nativo), trocar/folga de plantão, edição de escala e de modelo.
+
 ### Contas e carteira — etapa 1 (out/2026)
 - Cadastro de contas (Configurações), saldo por conta na tela inicial, campos Conta e Forma de pagamento nos lançamentos e fixos (pré-selecionados com a última escolha), "Sem conta", conta padrão para lançamentos automáticos, filtro por conta no extrato, arquivar e corrigir saldo, contas no backup.
 - **Finn com contas**: `list_accounts`, conta/forma em lançamentos e fixos, `transfer_between_accounts`, parcelas em `add_transaction` e `get_card_invoice`.

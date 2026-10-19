@@ -122,7 +122,7 @@ type AppDataContextValue = {
   addShiftRaw: (shift: Shift) => Promise<void>;
   updateShift: (id: string, patch: Partial<Shift>) => Promise<void>;
   removeShift: (id: string) => Promise<void>;
-  generateShiftsFromRule: (ruleId: string, limitMonths?: number) => Promise<void>;
+  generateShiftsFromRule: (ruleId: string, limitMonths?: number) => Promise<number>;
 
   // SHIFT TEMPLATES FUNCTIONS
   addShiftTemplate: (input: Omit<ShiftTemplate, "id" | "createdAt" | "updatedAt">) => Promise<ShiftTemplate>;
