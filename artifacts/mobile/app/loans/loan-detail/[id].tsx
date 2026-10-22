@@ -16,8 +16,11 @@ import { router, Stack, useLocalSearchParams } from "expo-router";
 
 import { EmptyState } from "@/components/EmptyState";
 import { useAppData } from "@/contexts/AppDataContext";
+import { useSettings } from "@/contexts/SettingsContext";
 import { useColors } from "@/hooks/useColors";
-import { formatCurrency, formatDate, genId } from "@/lib/format";
+import { formatCurrency, formatDate, genId, toIsoDay, parseDecimalPtBr } from "@/lib/format";
+import { AccountMethodFields } from "@/components/accounts/AccountMethodFields";
+import { useAccountChoice } from "@/hooks/useAccountChoice";
 import { generateLoanReport } from "@/lib/reports";
 
 export default function LoanDetailScreen() {
@@ -36,6 +39,8 @@ export default function LoanDetailScreen() {
   const [payAmount, setPayAmount] = useState("");
   const [addToExtrat, setAddToExtrat] = useState(true);
   const [saving, setSaving] = useState(false);
+  const { accountId, setAccountId, paymentMethod, setPaymentMethod } = useAccountChoice(true);
+  const { updateSettings } = useSettings();
 
   // Cálculos de Status
   const currentStatus = useMemo(() => {
@@ -75,8 +80,8 @@ export default function LoanDetailScreen() {
   if (!loan || !currentStatus) return null;
 
   const handleRegisterPayment = async () => {
-    const val = parseFloat(payAmount);
-    if (isNaN(val) || val <= 0 || saving) return;
+    const val = parseDecimalPtBr(payAmount);
+    if (val <= 0 || saving) return;
 
     setSaving(true);
     try {
@@ -96,11 +101,15 @@ export default function LoanDetailScreen() {
           type: isLend ? "income" : "expense",
           amount: val,
           categoryId: isLend ? "cat_loan_income" : "cat_loan_expense",
-          date: new Date().toISOString(),
+          date: toIsoDay(new Date()),
           description: `${isLend ? "Recebimento" : "Pagamento"}: ${loan.description}`,
+          accountId,
+          paymentMethod,
           createdAt: new Date().toISOString(),
         });
       }
+
+      if (addToExtrat && accountId) updateSettings({ lastAccountId: accountId });
 
       const lp = await addLoanPayment({
         loanId: loan.id,
@@ -373,13 +382,14 @@ export default function LoanDetailScreen() {
                 </Pressable>
               </View>
 
+              <ScrollView style={{ maxHeight: 520 }} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
               <View style={styles.modalForm}>
                 <View style={styles.inputGroup}>
                   <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}>
                     <Text style={[styles.label, { color: colors.mutedForeground }]}>Valor Recebido/Pago</Text>
                     {currentStatus.currentMonthInterest > 0 && (
                       <Pressable 
-                        onPress={() => setPayAmount(currentStatus.currentMonthInterest.toString())}
+                        onPress={() => setPayAmount(currentStatus.currentMonthInterest.toFixed(2).replace(".", ","))}
                         style={[styles.quickPayBtn, { backgroundColor: colors.accent + "15" }]}
                       >
                         <Text style={[styles.quickPayText, { color: colors.accent }]}>
@@ -411,6 +421,17 @@ export default function LoanDetailScreen() {
                   />
                 </View>
 
+                {addToExtrat && (
+                  <AccountMethodFields
+                    accountId={accountId}
+                    onAccountChange={setAccountId}
+                    paymentMethod={paymentMethod}
+                    onPaymentMethodChange={setPaymentMethod}
+                    hideCards
+                    accountLabel={loan.direction === "lend" ? "Em qual conta você recebeu?" : "De qual conta saiu?"}
+                  />
+                )}
+
                 <Pressable
                   onPress={handleRegisterPayment}
                   disabled={saving}
@@ -424,6 +445,7 @@ export default function LoanDetailScreen() {
                   </Text>
                 </Pressable>
               </View>
+              </ScrollView>
             </View>
           </View>
         </Modal>
