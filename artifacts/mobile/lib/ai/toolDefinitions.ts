@@ -200,6 +200,8 @@ export const AI_TOOLS: ToolDefinition[] = [
           loanDescription: { type: "string", description: "Descrição do empréstimo para identificar qual pagar (ex: 'reforma')" },
           amount: { type: "number", description: "Valor pago/recebido em reais" },
           addToExtrat: { type: "boolean", description: "Se deve lançar também no extrato principal (padrão true)" },
+          account: { type: "string", description: "Nome da conta que recebeu ou pagou o valor (ex: 'Nubank'). Sem isso usa a conta padrão." },
+          paymentMethod: { type: "string", description: "Forma: pix, debit, cash, boleto, transfer ou other" },
         },
         required: ["loanDescription", "amount"],
       },

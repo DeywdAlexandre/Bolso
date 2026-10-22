@@ -16,7 +16,10 @@ import { router, useLocalSearchParams } from "expo-router";
 
 import { useAppData } from "@/contexts/AppDataContext";
 import { useColors } from "@/hooks/useColors";
-import { formatCurrency, formatDate, todayIso, genId } from "@/lib/format";
+import { formatCurrency, formatDate, todayIso, genId, parseDecimalPtBr } from "@/lib/format";
+import { AccountMethodFields } from "@/components/accounts/AccountMethodFields";
+import { useAccountChoice } from "@/hooks/useAccountChoice";
+import { useSettings } from "@/contexts/SettingsContext";
 import type { LoanType } from "@/lib/types";
 
 export default function NewLoanScreen() {
@@ -33,6 +36,8 @@ export default function NewLoanScreen() {
   const [date, setDate] = useState(todayIso());
   const [addToExtrat, setAddToExtrat] = useState(true);
   const [saving, setSaving] = useState(false);
+  const { accountId, setAccountId, paymentMethod, setPaymentMethod } = useAccountChoice(true);
+  const { updateSettings } = useSettings();
 
   const editingLoan = useMemo(() => (id ? loans.find((l) => l.id === id) : null), [id, loans]);
 
@@ -71,9 +76,7 @@ export default function NewLoanScreen() {
     
     setSaving(true);
     try {
-      const cleanAmount = amount.replace(",", ".");
-      const cleanInterest = interest.replace(",", ".");
-      const pAmount = parseFloat(cleanAmount);
+      const pAmount = parseDecimalPtBr(amount);
       
       const payload = {
         contactId,
@@ -81,7 +84,7 @@ export default function NewLoanScreen() {
         type,
         description: description.trim(),
         principalAmount: pAmount,
-        interestRate: parseFloat(cleanInterest),
+        interestRate: parseDecimalPtBr(interest),
         installmentsCount: type === "fixed_installments" ? parseInt(installments) : undefined,
         startDate: date,
       };
@@ -105,8 +108,11 @@ export default function NewLoanScreen() {
             categoryId: isLend ? "cat_loan_expense" : "cat_loan_income",
             date: date,
             description: `${isLend ? "Empréstimo concedido" : "Empréstimo recebido"}: ${description.trim()}`,
+            accountId,
+            paymentMethod,
             createdAt: new Date().toISOString(),
           });
+          if (accountId) updateSettings({ lastAccountId: accountId });
         }
       }
       router.back();
@@ -288,6 +294,17 @@ export default function NewLoanScreen() {
                 trackColor={{ true: colors.primary }}
               />
             </View>
+          )}
+
+          {!id && addToExtrat && (
+            <AccountMethodFields
+              accountId={accountId}
+              onAccountChange={setAccountId}
+              paymentMethod={paymentMethod}
+              onPaymentMethodChange={setPaymentMethod}
+              hideCards
+              accountLabel={direction === "lend" ? "De qual conta saiu o dinheiro?" : "Em qual conta você recebeu?"}
+            />
           )}
 
           <View style={[styles.previewCard, { backgroundColor: colors.primary + "10" }]}>

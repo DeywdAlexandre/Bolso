@@ -121,6 +121,27 @@ export function preselectedAccountId(
   return undefined;
 }
 
+/**
+ * Conta que recebe/paga um lançamento ligado a empréstimo, pedida pelo nome; sem nome, a padrão.
+ * Cartão de crédito não serve: empréstimo entra e sai de conta, não de fatura.
+ */
+export function resolveCashAccount(
+  accounts: Account[],
+  name: string | undefined,
+  defaultAccountId?: string,
+): { accountId?: string; error?: string } {
+  const active = accounts.filter((a) => !a.archived && a.kind !== "card");
+  if (name?.trim()) {
+    const found = findAccount(active, name);
+    if (!found) {
+      const names = active.map((a) => a.name).join(", ") || "nenhuma conta cadastrada";
+      return { error: `Conta "${name}" não encontrada. Contas disponíveis: ${names}.` };
+    }
+    return { accountId: found.id };
+  }
+  return { accountId: active.find((a) => a.id === defaultAccountId)?.id };
+}
+
 const normalize = (s: string) =>
   s.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().trim();
 

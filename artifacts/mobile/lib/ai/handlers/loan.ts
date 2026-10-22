@@ -1,5 +1,6 @@
-import type { Loan, LoanContact, LoanPayment, Transaction } from "../../types";
-import { genId } from "../../format";
+import type { Account, Loan, LoanContact, LoanPayment, PaymentMethod, Transaction } from "../../types";
+import { genId, toIsoDay } from "../../format";
+import { parsePaymentMethod, resolveCashAccount } from "../../accounts";
 import { generateLoanReport as generatePDF } from "../../reports";
 
 export function buildLoanHandlers(deps: {
@@ -10,6 +11,8 @@ export function buildLoanHandlers(deps: {
   addLoan: (l: Omit<Loan, "id" | "createdAt" | "status">) => Promise<Loan>;
   addLoanPayment: (p: Omit<LoanPayment, "id" | "createdAt">) => Promise<LoanPayment>;
   addTransactionRaw: (t: Transaction) => Promise<void>;
+  accounts?: Account[];
+  defaultAccountId?: string;
 }) {
   return {
     async addLoanContact(args: { name: string }) {
@@ -97,7 +100,7 @@ export function buildLoanHandlers(deps: {
       return { loans: result };
     },
 
-    async addLoanPayment(args: { loanDescription: string; amount: number; addToExtrat?: boolean }) {
+    async addLoanPayment(args: { loanDescription: string; amount: number; addToExtrat?: boolean; account?: string; paymentMethod?: string }) {
       const loan = deps.loans.find((l) =>
         l.description.toLowerCase().includes(args.loanDescription.toLowerCase())
       );
@@ -114,6 +117,14 @@ export function buildLoanHandlers(deps: {
       const addToExtrat = args.addToExtrat !== false;
       const transactionId = genId();
 
+      const where = resolveCashAccount(deps.accounts ?? [], args.account, deps.defaultAccountId);
+      if (where.error) return { ok: false, error: where.error };
+      let paymentMethod: PaymentMethod | undefined;
+      if (args.paymentMethod?.trim()) {
+        paymentMethod = parsePaymentMethod(args.paymentMethod);
+        if (!paymentMethod) return { ok: false, error: `Forma de pagamento "${args.paymentMethod}" inválida. Use: pix, debit, cash, boleto, transfer ou other.` };
+      }
+
       if (addToExtrat) {
         const isLend = loan.direction === "lend";
         await deps.addTransactionRaw({
@@ -121,8 +132,10 @@ export function buildLoanHandlers(deps: {
           type: isLend ? "income" : "expense",
           amount: args.amount,
           categoryId: isLend ? "cat_loan_income" : "cat_loan_expense",
-          date: new Date().toISOString(),
+          date: toIsoDay(new Date()),
           description: `${isLend ? "Recebimento" : "Pagamento"} (IA): ${loan.description}`,
+          accountId: where.accountId,
+          paymentMethod,
           createdAt: new Date().toISOString(),
         });
       }
@@ -137,7 +150,8 @@ export function buildLoanHandlers(deps: {
         transactionId: addToExtrat ? transactionId : undefined,
       });
 
-      return { ok: true, payment };
+      const accountName = (deps.accounts ?? []).find((a) => a.id === where.accountId)?.name;
+      return { ok: true, payment, account: accountName ?? null };
     },
 
     async generateLoanReport(args: { loanDescription: string }) {

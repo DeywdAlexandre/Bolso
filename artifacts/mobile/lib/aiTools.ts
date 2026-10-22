@@ -96,6 +96,8 @@ export function buildToolHandlers(deps: ToolDeps) {
     addLoan: deps.addLoan,
     addLoanPayment: deps.addLoanPayment,
     addTransactionRaw: deps.addTransactionRaw,
+    accounts: deps.accounts,
+    defaultAccountId: deps.defaultAccountId,
   });
 
   const vehicleHandlers = buildVehicleHandlers({

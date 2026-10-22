@@ -12,16 +12,19 @@ type Props = {
   onAccountChange: (id: string | undefined) => void;
   paymentMethod: PaymentMethod | undefined;
   onPaymentMethodChange: (method: PaymentMethod | undefined) => void;
+  /** Esconde cartões de crédito (ex.: empréstimos, que entram e saem de conta). */
+  hideCards?: boolean;
+  accountLabel?: string;
 };
 
 /**
  * "Conta" e "Forma de pagamento" do lançamento. Os dois são opcionais: tocar de novo
  * no chip escolhido desmarca. Some quando ainda não há nenhuma conta cadastrada.
  */
-export function AccountMethodFields({ accountId, onAccountChange, paymentMethod, onPaymentMethodChange }: Props) {
+export function AccountMethodFields({ accountId, onAccountChange, paymentMethod, onPaymentMethodChange, hideCards, accountLabel = "Conta" }: Props) {
   const colors = useColors();
   const { accounts } = useAppData();
-  const active = accounts.filter((a) => !a.archived);
+  const active = accounts.filter((a) => !a.archived && !(hideCards && a.kind === "card"));
   const isCard = accounts.find((a) => a.id === accountId)?.kind === "card";
 
   if (active.length === 0) return null;
@@ -29,7 +32,7 @@ export function AccountMethodFields({ accountId, onAccountChange, paymentMethod,
   return (
     <>
       <View style={styles.field}>
-        <Text style={[styles.label, { color: colors.mutedForeground }]}>Conta</Text>
+        <Text style={[styles.label, { color: colors.mutedForeground }]}>{accountLabel}</Text>
         <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.row}>
           {active.map((a) => (
             <AccountChip
