@@ -4,6 +4,7 @@ import { Feather, Ionicons } from "@expo/vector-icons";
 import { router } from "expo-router";
 import { useColors } from "@/hooks/useColors";
 import { formatCurrency } from "@/lib/format";
+import { dueLabel, dueSoon } from "@/lib/loanDue";
 import type { Loan, LoanContact, LoanPayment } from "@/lib/types";
 
 interface LoansWidgetProps {
@@ -20,35 +21,14 @@ export function LoansWidget({
   showValue,
 }: LoansWidgetProps) {
   const colors = useColors();
+  const money = (v: number) => (showValue ? formatCurrency(v) : "••••••");
 
-  const activeLoans = loans.filter((l) => l.status === "active");
-
-  // Calcular saldos restantes a pagar e a receber
-  let totalToReceive = 0;
-  let totalToPay = 0;
-
-  const loanItems = activeLoans.map((loan) => {
-    const contact = loanContacts.find((c) => c.id === loan.contactId);
-    
-    // Calcula pagamentos amortizados de principal para este empréstimo
-    const payments = loanPayments.filter((p) => p.loanId === loan.id);
-    const totalPrincipalPaid = payments.reduce((sum, p) => sum + (p.principalPaid || p.amount), 0);
-    const balanceRemaining = Math.max(0, loan.principalAmount - totalPrincipalPaid);
-
-    if (loan.direction === "lend") {
-      totalToReceive += balanceRemaining;
-    } else {
-      totalToPay += balanceRemaining;
-    }
-
-    return {
-      ...loan,
-      contactName: contact?.name || "Contato",
-      balanceRemaining,
-    };
-  }).filter(item => item.balanceRemaining > 0);
-
-  const displayLoans = loanItems.slice(0, 2);
+  const hasActive = loans.some((l) => l.status === "active");
+  // Só o que vence: juros ou parcela, vencidos e dos próximos 7 dias (nunca o principal).
+  const due = dueSoon(loans, loanPayments, new Date(), 7);
+  const toReceive = due.filter((d) => d.direction === "lend").reduce((s, d) => s + d.amount, 0);
+  const toPay = due.filter((d) => d.direction === "borrow").reduce((s, d) => s + d.amount, 0);
+  const displayDue = due.slice(0, 3);
 
   return (
     <View style={[styles.card, { backgroundColor: colors.card, borderColor: colors.border }]}>
@@ -58,7 +38,10 @@ export function LoansWidget({
           <View style={[styles.iconBox, { backgroundColor: colors.primary + "12" }]}>
             <Ionicons name="briefcase-outline" size={20} color={colors.primary} />
           </View>
-          <Text style={[styles.title, { color: colors.foreground }]}>Empréstimos</Text>
+          <View>
+            <Text style={[styles.title, { color: colors.foreground }]}>Empréstimos</Text>
+            <Text style={[styles.subtitle, { color: colors.mutedForeground }]}>Vencidos e próximos 7 dias</Text>
+          </View>
         </View>
         <Pressable
           onPress={() => router.push("/loans")}
@@ -72,56 +55,59 @@ export function LoansWidget({
         </Pressable>
       </View>
 
-      {/* Resumo consolidado */}
-      <View style={styles.statsContainer}>
-        <View style={styles.statBox}>
-          <Text style={[styles.statLabel, { color: colors.mutedForeground }]}>A Receber</Text>
-          <Text style={[styles.statValue, { color: colors.income }]}>
-            {showValue ? formatCurrency(totalToReceive) : "••••••"}
-          </Text>
+      {due.length > 0 && (
+        <View style={styles.statsContainer}>
+          <View style={styles.statBox}>
+            <Text style={[styles.statLabel, { color: colors.mutedForeground }]}>A Receber</Text>
+            <Text style={[styles.statValue, { color: colors.income }]}>{money(toReceive)}</Text>
+          </View>
+          <View style={[styles.divider, { backgroundColor: colors.border }]} />
+          <View style={styles.statBox}>
+            <Text style={[styles.statLabel, { color: colors.mutedForeground }]}>A Pagar</Text>
+            <Text style={[styles.statValue, { color: colors.destructive }]}>{money(toPay)}</Text>
+          </View>
         </View>
-        <View style={[styles.divider, { backgroundColor: colors.border }]} />
-        <View style={styles.statBox}>
-          <Text style={[styles.statLabel, { color: colors.mutedForeground }]}>A Pagar</Text>
-          <Text style={[styles.statValue, { color: colors.destructive }]}>
-            {showValue ? formatCurrency(totalToPay) : "••••••"}
-          </Text>
-        </View>
-      </View>
+      )}
 
-      {/* Lista de Empréstimos Ativos */}
       <View style={styles.loansContainer}>
-        {loanItems.length === 0 ? (
+        {!hasActive ? (
           <Text style={[styles.emptyText, { color: colors.mutedForeground }]}>
             Nenhum empréstimo ativo registrado.
           </Text>
+        ) : due.length === 0 ? (
+          <View style={styles.allClear}>
+            <Feather name="check-circle" size={16} color={colors.income} />
+            <Text style={[styles.emptyText, { color: colors.mutedForeground, paddingVertical: 0 }]}>
+              Nada vencido nem a vencer nos próximos 7 dias.
+            </Text>
+          </View>
         ) : (
           <View style={styles.list}>
-            {displayLoans.map((loan) => {
-              const isLend = loan.direction === "lend";
+            {displayDue.map((d) => {
+              const loan = loans.find((l) => l.id === d.loanId)!;
+              const contact = loanContacts.find((c) => c.id === loan.contactId);
+              const isLend = d.direction === "lend";
+              const late = d.status === "overdue";
+              const tone = late ? colors.destructive : d.status === "today" ? colors.accent : colors.mutedForeground;
               return (
                 <Pressable
-                  key={loan.id}
-                  onPress={() => router.push(`/loans/loan-detail/${loan.id}`)}
-                  style={[styles.loanRow, { borderColor: colors.border }]}
+                  key={d.loanId}
+                  onPress={() => router.push(`/loans/loan-detail/${d.loanId}`)}
+                  style={[styles.loanRow, { borderColor: late ? colors.destructive + "55" : colors.border }]}
                 >
                   <View style={styles.loanInfo}>
                     <Text style={[styles.contactName, { color: colors.foreground }]} numberOfLines={1}>
-                      {loan.contactName}
+                      {contact?.name || "Contato"}
                     </Text>
-                    <Text style={[styles.description, { color: colors.mutedForeground }]} numberOfLines={1}>
-                      {loan.description || (isLend ? "Dinheiro Emprestado" : "Dinheiro Pegado")}
+                    <Text style={[styles.description, { color: tone, fontFamily: late ? "Inter_600SemiBold" : "Inter_400Regular" }]} numberOfLines={1}>
+                      {dueLabel(d)}
+                      {d.overdueCount > 1 ? ` · ${d.overdueCount} ${loan.type === "monthly_interest" ? "meses" : "parcelas"}` : ""}
                     </Text>
                   </View>
 
                   <View style={styles.amountCol}>
-                    <Text
-                      style={[
-                        styles.loanAmount,
-                        { color: isLend ? colors.income : colors.destructive },
-                      ]}
-                    >
-                      {isLend ? "+" : "-"} {showValue ? formatCurrency(loan.balanceRemaining) : "••••••"}
+                    <Text style={[styles.loanAmount, { color: isLend ? colors.income : colors.destructive }]}>
+                      {isLend ? "+" : "-"} {money(d.amount)}
                     </Text>
                     <Text style={[styles.directionLabel, { color: colors.mutedForeground }]}>
                       {isLend ? "receber" : "pagar"}
@@ -130,6 +116,11 @@ export function LoansWidget({
                 </Pressable>
               );
             })}
+            {due.length > displayDue.length && (
+              <Text style={[styles.more, { color: colors.mutedForeground }]}>
+                + {due.length - displayDue.length} {due.length - displayDue.length === 1 ? "outro vencimento" : "outros vencimentos"}
+              </Text>
+            )}
           </View>
         )}
       </View>
@@ -170,6 +161,9 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontFamily: "Inter_700Bold",
   },
+  subtitle: { fontSize: 11, fontFamily: "Inter_400Regular" },
+  allClear: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8, paddingVertical: 8 },
+  more: { fontSize: 12, fontFamily: "Inter_500Medium", textAlign: "center" },
   linkBtn: {
     flexDirection: "row",
     alignItems: "center",

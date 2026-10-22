@@ -22,6 +22,7 @@ import { formatCurrency, formatDate, genId, toIsoDay, parseDecimalPtBr } from "@
 import { AccountMethodFields } from "@/components/accounts/AccountMethodFields";
 import { useAccountChoice } from "@/hooks/useAccountChoice";
 import { generateLoanReport } from "@/lib/reports";
+import { nextDue } from "@/lib/loanDue";
 
 export default function LoanDetailScreen() {
   const colors = useColors();
@@ -52,11 +53,10 @@ export default function LoanDetailScreen() {
     // Juros do mês atual
     const currentMonthInterest = (remainingPrincipal * loan.interestRate) / 100;
 
-    // Cálculo da Data de Vencimento (mesmo dia do mês seguinte)
-    const lastDate = payments.length > 0 ? payments[0].date : loan.startDate;
-    const nextDue = new Date(lastDate);
-    nextDue.setMonth(nextDue.getMonth() + 1);
-    
+    // Próximo vencimento em aberto (mesmo cálculo da tela inicial e da agenda)
+    const due = nextDue(loan, payments, new Date());
+    const nextDueDate = due ? due.dueDate : null;
+
     // Lógica para Parcelas Fixas
     const isFixed = loan.type === "fixed_installments";
     const totalContracted = loan.principalAmount * (1 + loan.interestRate / 100);
@@ -69,7 +69,7 @@ export default function LoanDetailScreen() {
       remainingPrincipal,
       currentMonthInterest,
       totalRemaining: isFixed ? (totalContracted - (paidPrincipal + paidInterest)) : (remainingPrincipal + currentMonthInterest),
-      nextDue: nextDue.toISOString(),
+      nextDue: nextDueDate,
       isFixed,
       totalContracted,
       installmentValue,
@@ -239,7 +239,7 @@ export default function LoanDetailScreen() {
               <View style={styles.statItem}>
                 <Text style={[styles.statLabel, { color: colors.mutedForeground }]}>Vencimento</Text>
                 <Text style={[styles.statValue, { color: colors.primary }]}>
-                  {formatDate(currentStatus.nextDue)}
+                  {currentStatus.nextDue ? formatDate(currentStatus.nextDue) : "—"}
                 </Text>
               </View>
             </View>

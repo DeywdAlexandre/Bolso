@@ -15,6 +15,7 @@ import { EmptyState } from "@/components/EmptyState";
 import { useAppData } from "@/contexts/AppDataContext";
 import { useColors } from "@/hooks/useColors";
 import { formatCurrency, formatDate } from "@/lib/format";
+import { dueSoon } from "@/lib/loanDue";
 import type { Loan, LoanContact } from "@/lib/types";
 
 type AgendaItem = {
@@ -41,79 +42,26 @@ export default function LoansAgendaScreen() {
     const upcoming: AgendaItem[] = [];
     const todayItems: AgendaItem[] = [];
 
-    loans.forEach((loan) => {
-      if (loan.status !== "active") return;
-
+    dueSoon(loans, loanPayments, today, 7).forEach((d) => {
+      const loan = loans.find((l) => l.id === d.loanId)!;
       const contact = loanContacts.find((c) => c.id === loan.contactId);
-      const payments = loanPayments.filter((p) => p.loanId === loan.id);
-      
-      let nextDueDate: Date | null = null;
-      let amountDue = 0;
-
-      if (loan.type === "fixed_installments") {
-        const totalContracted = loan.principalAmount * (1 + loan.interestRate / 100);
-        const installmentValue = totalContracted / (loan.installmentsCount || 1);
-        const paidTotal = payments.reduce((s, p) => s + p.amount, 0);
-        const installmentsPaid = Math.floor(paidTotal / (installmentValue - 0.01)); // Margem para arredondamento
-
-        if (installmentsPaid < (loan.installmentsCount || 0)) {
-          const nextIdx = installmentsPaid + 1;
-          const date = new Date(loan.startDate);
-          date.setMonth(date.getMonth() + nextIdx);
-          nextDueDate = date;
-          amountDue = installmentValue;
-        }
-      } else if (loan.type === "monthly_interest") {
-        // Para juros mensal, o vencimento é no mesmo dia do mês atual
-        const start = new Date(loan.startDate);
-        const currentDue = new Date(today.getFullYear(), today.getMonth(), start.getDate());
-        
-        // Verifica se já pagou o juros deste mês
-        const paidPrincipal = payments.reduce((s, p) => s + p.principalPaid, 0);
-        const remainingPrincipal = loan.principalAmount - paidPrincipal;
-        const interestDue = (remainingPrincipal * loan.interestRate) / 100;
-        
-        const paidThisMonth = payments.some(p => {
-            const pDate = new Date(p.date);
-            return pDate.getMonth() === today.getMonth() && pDate.getFullYear() === today.getFullYear() && p.interestPaid > 0;
-        });
-
-        if (!paidThisMonth && remainingPrincipal > 0) {
-            nextDueDate = currentDue;
-            amountDue = interestDue;
-        }
-      }
-
-      if (nextDueDate && amountDue > 0) {
-        const dueDateCopy = new Date(nextDueDate);
-        dueDateCopy.setHours(0, 0, 0, 0);
-
-        const item: AgendaItem = {
-          loanId: loan.id,
-          contactId: loan.contactId,
-          contactName: contact?.name || "Desconhecido",
-          description: loan.description,
-          amount: amountDue,
-          dueDate: nextDueDate.toISOString(),
-          direction: loan.direction,
-          type: "upcoming"
-        };
-
-        if (dueDateCopy < today) {
-          item.type = "overdue";
-          overdue.push(item);
-        } else if (dueDateCopy.getTime() === today.getTime()) {
-          item.type = "today";
-          todayItems.push(item);
-        } else if (dueDateCopy <= new Date(today.getTime() + 7 * 24 * 60 * 60 * 1000)) {
-          item.type = "upcoming";
-          upcoming.push(item);
-        }
-      }
+      const item: AgendaItem = {
+        loanId: loan.id,
+        contactId: loan.contactId,
+        contactName: contact?.name || "Desconhecido",
+        description: loan.description,
+        amount: d.amount,
+        dueDate: d.dueDate,
+        direction: loan.direction,
+        type: d.status,
+      };
+      if (d.status === "overdue") overdue.push(item);
+      else if (d.status === "today") todayItems.push(item);
+      else upcoming.push(item);
     });
 
     // Ordenar
-    const sortFn = (a: AgendaItem, b: AgendaItem) => new Date(a.dueDate).getTime() - new Date(b.dueDate).getTime();
+    const sortFn = (a: AgendaItem, b: AgendaItem) => a.dueDate.localeCompare(b.dueDate);
     
     return {
       overdue: overdue.sort(sortFn),

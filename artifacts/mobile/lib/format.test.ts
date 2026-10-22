@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { addDaysIso, fromIsoDay, localDayStart, parseAmountInput, toIsoDay } from "./format";
+import { addDaysIso, formatDate, fromIsoDay, localDayStart, parseAmountInput, toIsoDay } from "./format";
 import { roundMoney, sumMoney } from "./money";
 
 describe("format", () => {
@@ -32,5 +32,16 @@ describe("localDayStart", () => {
     expect(d.getHours()).toBe(0);
     expect(toIsoDay(d)).toBe("2026-03-05");
     expect(toIsoDay(localDayStart("2026-03-05T23:30:00.000Z"))).toBe("2026-03-05");
+  });
+});
+
+describe("formatDate", () => {
+  it("data sem hora mostra o mesmo dia em qualquer fuso", () => {
+    expect(formatDate("2026-09-10")).toBe("10/09/2026");
+    expect(formatDate("2026-01-01")).toBe("01/01/2026");
+  });
+  it("data com hora continua funcionando", () => {
+    expect(formatDate("2026-09-10T15:00:00")).toBe("10/09/2026");
+    expect(formatDate("lixo")).toBe("");
   });
 });
