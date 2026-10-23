@@ -1,11 +1,11 @@
 import React, { useCallback, useEffect, useState } from "react";
-import { ActivityIndicator, Alert, Modal, Pressable, ScrollView, Text, View } from "react-native";
+import { ActivityIndicator, Alert, Modal, Pressable, ScrollView, Switch, Text, TextInput, View } from "react-native";
 import { Feather } from "@expo/vector-icons";
 
 import { useColors } from "@/hooks/useColors";
 import { planCalendarImport, type CalendarEvent, type ImportPlan, type ImportedShift } from "@/lib/calendarImport";
-import { formatDate } from "@/lib/format";
-import type { Shift } from "@/lib/types";
+import { formatCurrency, formatDate, parseDecimalPtBr } from "@/lib/format";
+import type { Shift, ShiftTemplate } from "@/lib/types";
 
 import { styles } from "./styles";
 
@@ -14,24 +14,42 @@ const WINDOW_DAYS = 90;
 
 type DeviceCalendar = { id: string; title: string; color?: string; source?: { name?: string } };
 
+/** Plantão pronto para salvar: tipo e valor já resolvidos. */
+export type ImportItem = ImportedShift & Pick<Shift, "type" | "value">;
+
 type Props = {
   visible: boolean;
   shifts: Shift[];
+  templates: ShiftTemplate[];
   onClose: () => void;
-  onImport: (items: ImportedShift[]) => Promise<void>;
+  onImport: (items: ImportItem[]) => Promise<void>;
 };
+
+const norm = (t: string) => t.trim().toLowerCase();
 
 // Carrega o módulo só quando a tela abre: ele não existe na versão web (PWA).
 const loadCalendar = () => require("expo-calendar") as typeof import("expo-calendar");
 
 /** Importa plantões a partir de um calendário do celular (ex.: onde o agente do Gemini lança as escalas). */
-export function CalendarImportModal({ visible, shifts, onClose, onImport }: Props) {
+export function CalendarImportModal({ visible, shifts, templates, onClose, onImport }: Props) {
   const colors = useColors();
   const [loading, setLoading] = useState(false);
   const [denied, setDenied] = useState(false);
   const [calendars, setCalendars] = useState<DeviceCalendar[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [plan, setPlan] = useState<ImportPlan | null>(null);
+  const [asExtra, setAsExtra] = useState(false);
+  const [valueText, setValueText] = useState("");
+
+  // Mesmo nome de um modelo de escala: usa o tipo e o valor dele. Os demais seguem o valor informado abaixo.
+  const resolve = (s: ImportedShift): ImportItem => {
+    const tpl = templates.find((t) => norm(t.name) === norm(s.name));
+    if (tpl) return { ...s, type: tpl.type, value: tpl.type === "extra" ? tpl.value : undefined };
+    if (asExtra) return { ...s, type: "extra", value: parseDecimalPtBr(valueText) };
+    return { ...s, type: "ordinary" };
+  };
+  const resolved = plan ? plan.toAdd.map(resolve) : [];
+  const totalValue = resolved.reduce((sum, s) => sum + (s.type === "extra" ? s.value ?? 0 : 0), 0);
 
   const loadCalendars = useCallback(async () => {
     setLoading(true);
@@ -81,7 +99,7 @@ export function CalendarImportModal({ visible, shifts, onClose, onImport }: Prop
     if (!plan || plan.toAdd.length === 0) return;
     setLoading(true);
     try {
-      await onImport(plan.toAdd);
+      await onImport(resolved);
       Alert.alert("Agenda", `${plan.toAdd.length} plantão(ões) importado(s).`);
       onClose();
     } finally {
@@ -155,11 +173,43 @@ export function CalendarImportModal({ visible, shifts, onClose, onImport }: Prop
                     {plan.toAdd.length} novo(s) · {plan.duplicates} já existente(s)
                     {plan.skipped ? ` · ${plan.skipped} ignorado(s)` : ""}
                   </Text>
-                  {plan.toAdd.slice(0, 8).map((s, i) => (
+                  <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
+                    <Text style={{ color: colors.foreground, fontSize: 13, flex: 1 }}>
+                      Plantões extras (com valor a receber)
+                    </Text>
+                    <Switch value={asExtra} onValueChange={setAsExtra} />
+                  </View>
+                  {asExtra && (
+                    <TextInput
+                      value={valueText}
+                      onChangeText={setValueText}
+                      keyboardType="numeric"
+                      placeholder="Valor por plantão (R$)"
+                      placeholderTextColor={colors.mutedForeground}
+                      style={{
+                        borderWidth: 1,
+                        borderColor: colors.border,
+                        borderRadius: 10,
+                        padding: 10,
+                        color: colors.foreground,
+                        backgroundColor: colors.card,
+                      }}
+                    />
+                  )}
+                  <Text style={{ color: colors.mutedForeground, fontSize: 11 }}>
+                    Eventos com o mesmo nome de um modelo de escala usam o valor do modelo. Dá para ajustar cada plantão depois, no lápis.
+                  </Text>
+                  {resolved.slice(0, 8).map((s, i) => (
                     <Text key={i} style={{ color: colors.mutedForeground, fontSize: 12 }}>
                       {formatDate(s.date)} · {s.name} · {s.startTime}–{s.endTime}
+                      {s.type === "extra" ? ` · ${formatCurrency(s.value ?? 0)}` : ""}
                     </Text>
                   ))}
+                  {totalValue > 0 && (
+                    <Text style={{ color: colors.income, fontSize: 13, fontFamily: "Inter_700Bold" }}>
+                      Total a receber: {formatCurrency(totalValue)}
+                    </Text>
+                  )}
                   {plan.toAdd.length > 8 && (
                     <Text style={{ color: colors.mutedForeground, fontSize: 12 }}>e mais {plan.toAdd.length - 8}…</Text>
                   )}

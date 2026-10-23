@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useMemo } from "react";
 import {
   Pressable,
   ScrollView,
@@ -9,7 +9,10 @@ import {
 import { Feather } from "@expo/vector-icons";
 import { router, Stack, useLocalSearchParams } from "expo-router";
 
+import { useAppData } from "@/contexts/AppDataContext";
 import { useColors } from "@/hooks/useColors";
+import { toIsoDay } from "@/lib/format";
+import { computeMonthComparison } from "@/lib/vehicleSummary";
 import { useVehicle } from "@/hooks/useVehicle";
 
 import { VehicleHeaderCard } from "@/components/vehicle/VehicleHeaderCard";
@@ -33,6 +36,20 @@ export default function VehicleDetailScreen() {
     handleDeleteVehicle,
     handleDeleteEntry,
   } = useVehicle(id);
+
+  const { fuelings, oilChanges, vehicleExpenses } = useAppData();
+  const monthSpent = useMemo(
+    () =>
+      computeMonthComparison(
+        {
+          fuelings: fuelings.filter((f) => f.vehicleId === id),
+          oilChanges: oilChanges.filter((o) => o.vehicleId === id),
+          expenses: vehicleExpenses.filter((e) => e.vehicleId === id),
+        },
+        toIsoDay(new Date()).slice(0, 7),
+      ).spent,
+    [fuelings, oilChanges, vehicleExpenses, id],
+  );
 
   if (!vehicle || !stats) {
     return (
@@ -80,14 +97,14 @@ export default function VehicleDetailScreen() {
         style={{ flex: 1, backgroundColor: colors.background }}
         contentContainerStyle={styles.container}
       >
-        <VehicleHeaderCard vehicle={vehicle} accent={accent} />
+        <VehicleHeaderCard vehicle={vehicle} accent={accent} stats={stats} />
 
         <VehicleActionsRow
           vehicleId={vehicle.id}
           onOpenExtraExpense={() => setExtraModalVisible(true)}
         />
 
-        <VehicleStatsGrid stats={stats} />
+        <VehicleStatsGrid stats={stats} monthSpent={monthSpent} />
 
         <VehicleSegmentsCard segments={stats.segments} openSegment={stats.openSegment} />
 

@@ -13,11 +13,15 @@ interface VehicleStatsGridProps {
     recentKmPerLiter: number | null;
     avgCostPerKm: number | null;
     totalKm: number;
+    totalSpentAllTime: number;
   };
+  /** Gasto do mês corrente (combustível + óleo + extras). */
+  monthSpent: number;
 }
 
-export function VehicleStatsGrid({ stats }: VehicleStatsGridProps) {
+export function VehicleStatsGrid({ stats, monthSpent }: VehicleStatsGridProps) {
   return (
+    <View style={{ gap: 10 }}>
     <View style={styles.statsGrid}>
       <BigStat
         label="KM/L médio"
@@ -45,6 +49,11 @@ export function VehicleStatsGrid({ stats }: VehicleStatsGridProps) {
             : "Sem dados ainda"
         }
       />
+    </View>
+    <View style={styles.statsGrid}>
+      <BigStat label="Gasto no mês" value={formatCurrency(monthSpent)} sub="Combustível, óleo e extras" />
+      <BigStat label="Custo total" value={formatCurrency(stats.totalSpentAllTime)} sub="Desde o primeiro registro" />
+    </View>
     </View>
   );
 }
