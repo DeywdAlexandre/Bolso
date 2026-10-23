@@ -1,6 +1,7 @@
 # Publica no app instalado (APK) toda mudança só de código que chegar na main.
 # Mudança nativa (nova biblioteca, plugin, permissão) NÃO entra por aqui: exige subir a versão
-# em app.json ("version") e gerar um APK novo — só então o runtimeVersion muda e o APK novo passa a receber as atualizações.
+# em artifacts/mobile/app.json ("version") e gerar um APK novo. O runtimeVersion acompanha essa versão,
+# então um APK antigo nunca recebe código que depende de módulo nativo que ele não tem.
 name: Publicar atualização
 
 on:
@@ -10,6 +11,13 @@ on:
 jobs:
   publish_update:
     name: Atualização do app (OTA)
-    type: update
-    params:
-      channel: preview
+    steps:
+      - uses: eas/checkout
+      # O servidor traz pnpm 8; o lockfile do projeto é do pnpm 10.
+      - name: Instalar pnpm 10
+        run: npm install -g pnpm@10.28.0
+      - name: Instalar dependências
+        run: pnpm install --frozen-lockfile
+      - name: Publicar atualização
+        working_directory: artifacts/mobile
+        run: npx --yes eas-cli@latest update --channel preview --platform android --message "$(git log -1 --pretty=%s)" --non-interactive
