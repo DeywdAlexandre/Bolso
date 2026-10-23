@@ -689,10 +689,11 @@ export default function ShiftsScreen() {
         <CalendarImportModal
           visible={isImportOpen}
           shifts={shifts}
+          templates={shiftTemplates}
           onClose={() => setIsImportOpen(false)}
           onImport={async (items) => {
             for (const item of items) {
-              await addShift({ ...item, type: "ordinary", isPaid: false });
+              await addShift({ ...item, isPaid: false });
             }
           }}
         />
