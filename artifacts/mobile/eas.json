@@ -20,7 +20,10 @@
       },
       "ios": {
         "simulator": true
-      }
+      },
+      "node": "20.19.4",
+      "pnpm": "10.28.0",
+      "image": "latest"
     },
     "production": {
       "channel": "production",
