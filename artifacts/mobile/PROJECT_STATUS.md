@@ -42,6 +42,13 @@ O **Prisma** é um assistente financeiro pessoal "Offline-First" com inteligênc
 
 ---
 
+## 🚀 Atualizações do app (APK)
+- **Só código (telas, regras, textos):** basta mesclar na `main`. O workflow `.eas/workflows/publish-update.yml` publica a atualização (OTA, canal `preview`) e o app a baixa sozinho ao abrir.
+- **Mudança nativa** (biblioteca nativa nova, plugin/permissão no `app.json`, ícone/splash, versão do Expo): OTA não alcança. Subir `version` em `app.json` e gerar um APK novo (`preview`). O `runtimeVersion` segue a `version`, então APK antigo não recebe código que depende de módulo nativo que ele não tem.
+- Cota gratuita de builds do Expo é limitada: agrupar mudanças nativas antes de gerar o APK.
+
+---
+
 ## 📈 Log de Atualizações
 
 ### Revisão geral (out/2026)

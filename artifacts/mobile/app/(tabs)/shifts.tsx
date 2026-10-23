@@ -18,6 +18,7 @@ import { formatCurrency, parseDecimalPtBr, toIsoDay } from "@/lib/format";
 import { findDuplicateShift, formatHours, monthStats, normalizeTime, parseHours, validateShiftForm } from "@/lib/shifts";
 import type { Shift, ShiftRecurrenceType, ShiftTemplate } from "@/lib/types";
 import { MONTHS, PRESETS_COLORS, WEEKDAYS_SHORT } from "@/components/shifts/constants";
+import { CalendarImportModal } from "@/components/shifts/CalendarImportModal";
 import { ShiftEditModal } from "@/components/shifts/ShiftEditModal";
 import { ShiftRulesModal } from "@/components/shifts/ShiftRulesModal";
 import { ShiftTemplatesModal } from "@/components/shifts/ShiftTemplatesModal";
@@ -57,6 +58,7 @@ export default function ShiftsScreen() {
   // Estados dos Modais
   const [isNewModalOpen, setIsNewModalOpen] = useState(false);
   const [isRulesModalOpen, setIsRulesModalOpen] = useState(false);
+  const [isImportOpen, setIsImportOpen] = useState(false);
   const [isTemplatesModalOpen, setIsTemplatesModalOpen] = useState(false);
   const [isNewTemplateModalOpen, setIsNewTemplateModalOpen] = useState(false);
   const [editingShift, setEditingShift] = useState<Shift | null>(null);
@@ -427,6 +429,7 @@ export default function ShiftsScreen() {
           shiftTemplates={shiftTemplates}
           onOpenTemplates={() => setIsTemplatesModalOpen(true)}
           onOpenRules={() => setIsRulesModalOpen(true)}
+          onOpenImport={() => setIsImportOpen(true)}
           onAddSingle={() => {
             setFormMode("single");
             setIsNewModalOpen(true);
@@ -681,6 +684,19 @@ export default function ShiftsScreen() {
           </View>
         </View>
       </Modal>
+
+      {Platform.OS !== "web" && (
+        <CalendarImportModal
+          visible={isImportOpen}
+          shifts={shifts}
+          onClose={() => setIsImportOpen(false)}
+          onImport={async (items) => {
+            for (const item of items) {
+              await addShift({ ...item, type: "ordinary", isPaid: false });
+            }
+          }}
+        />
+      )}
 
       <ShiftEditModal shift={editingShift} onClose={() => setEditingShift(null)} onSave={handleEditShift} />
 

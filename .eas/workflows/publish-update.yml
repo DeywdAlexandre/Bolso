@@ -1,0 +1,27 @@
+# Publica no app instalado (APK) toda mudança só de código que chegar na main.
+# Mudança nativa (nova biblioteca, plugin, permissão) NÃO entra por aqui: exige subir a versão
+# em artifacts/mobile/app.json ("version") e gerar um APK novo. O runtimeVersion acompanha essa versão,
+# então um APK antigo nunca recebe código que depende de módulo nativo que ele não tem.
+name: Publicar atualização
+
+on:
+  push:
+    branches: ['main']
+
+jobs:
+  publish_update:
+    name: Atualização do app (OTA)
+    steps:
+      - uses: eas/checkout
+      # O servidor traz Node 18 e pnpm 8; o Metro exige Node 20 e o lockfile é do pnpm 10.
+      # Tudo no mesmo passo, porque a troca de versão do Node só vale dentro do próprio shell.
+      - name: Instalar e publicar
+        run: |
+          source "$NVM_DIR/nvm.sh"
+          nvm install 20.19.4
+          nvm use 20.19.4
+          node --version
+          npm install -g pnpm@10.28.0
+          pnpm install --frozen-lockfile
+          cd artifacts/mobile
+          npx --yes eas-cli@latest update --channel preview --platform android --message "$(git log -1 --pretty=%s)" --non-interactive

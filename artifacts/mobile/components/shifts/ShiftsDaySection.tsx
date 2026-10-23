@@ -1,5 +1,5 @@
 import React from "react";
-import { Pressable, ScrollView, Text, View } from "react-native";
+import { Platform, Pressable, ScrollView, Text, View } from "react-native";
 import { Feather } from "@expo/vector-icons";
 
 import { useColors } from "@/hooks/useColors";
@@ -17,6 +17,7 @@ type Props = {
   shiftTemplates: ShiftTemplate[];
   onOpenTemplates: () => void;
   onOpenRules: () => void;
+  onOpenImport?: () => void;
   onAddSingle: () => void;
   onApplyTemplate: (template: ShiftTemplate, dateStr: string) => void;
   onTogglePaid: (shift: Shift) => void;
@@ -24,7 +25,7 @@ type Props = {
   onEditShift: (shift: Shift) => void;
 };
 
-export function ShiftsDaySection({ selectedDate, selectedDateStr, shiftsOfSelectedDay, shiftTemplates, onOpenTemplates, onOpenRules, onAddSingle, onApplyTemplate, onTogglePaid, onDeleteShift, onEditShift }: Props) {
+export function ShiftsDaySection({ selectedDate, selectedDateStr, shiftsOfSelectedDay, shiftTemplates, onOpenTemplates, onOpenRules, onOpenImport, onAddSingle, onApplyTemplate, onTogglePaid, onDeleteShift, onEditShift }: Props) {
   const colors = useColors();
 
   return (
@@ -41,6 +42,15 @@ export function ShiftsDaySection({ selectedDate, selectedDateStr, shiftsOfSelect
             <Feather name="list" size={14} color={colors.primary} />
             <Text style={[styles.rulesBtnText, { color: colors.primary }]}>Modelos</Text>
           </Pressable>
+          {onOpenImport && Platform.OS !== "web" && (
+            <Pressable
+              onPress={() => onOpenImport()}
+              style={({ pressed }) => [styles.rulesBtn, { opacity: pressed ? 0.7 : 1 }]}
+            >
+              <Feather name="download" size={14} color={colors.primary} />
+              <Text style={[styles.rulesBtnText, { color: colors.primary }]}>Agenda</Text>
+            </Pressable>
+          )}
           <Pressable
             onPress={() => onOpenRules()}
             style={({ pressed }) => [styles.rulesBtn, { opacity: pressed ? 0.7 : 1 }]}
