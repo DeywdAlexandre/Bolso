@@ -45,7 +45,13 @@
           "faceIDPermission": "Permita o Face ID para proteger o acesso aos seus dados."
         }
       ],
-      "expo-notifications"
+      "expo-notifications",
+      [
+        "expo-calendar",
+        {
+          "calendarPermission": "Permita acessar a agenda para importar suas escalas."
+        }
+      ]
     ],
     "experiments": {
       "typedRoutes": true,
