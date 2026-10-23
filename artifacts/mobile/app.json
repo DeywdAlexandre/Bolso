@@ -3,7 +3,7 @@
     "name": "Prisma",
     "slug": "prisma",
     "owner": "deywd",
-    "version": "1.0.0",
+    "version": "1.1.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
     "scheme": "prisma",
@@ -50,6 +50,24 @@
         "expo-calendar",
         {
           "calendarPermission": "Permita acessar a agenda para importar suas escalas."
+        }
+      ],
+      [
+        "expo-speech-recognition",
+        {
+          "microphonePermission": "Permita o microfone para ditar mensagens ao assistente.",
+          "speechRecognitionPermission": "Permita o reconhecimento de voz para transcrever suas mensagens.",
+          "androidSpeechServicePackages": [
+            "com.google.android.googlequicksearchbox",
+            "com.google.android.as"
+          ]
+        }
+      ],
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "Permita acessar suas fotos para escolher a imagem do contato.",
+          "cameraPermission": "Permita usar a câmera para fotografar o contato."
         }
       ]
     ],

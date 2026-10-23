@@ -1,5 +1,6 @@
 import React, { useState } from "react";
 import {
+  Alert,
   Linking,
   Platform,
   Pressable,
@@ -13,6 +14,7 @@ import { Feather } from "@expo/vector-icons";
 import { router, Stack } from "expo-router";
 
 import { useColors } from "@/hooks/useColors";
+import { verifyBiometricsForEnable } from "@/lib/biometrics";
 import { useSettingsForm } from "@/hooks/useSettingsForm";
 import { useAppData } from "@/contexts/AppDataContext";
 import { formatCurrency } from "@/lib/format";
@@ -126,7 +128,15 @@ export default function SettingsScreen() {
               icon="shield"
               title="Proteção Biométrica"
               subtitle="Solicitar digital ou face ao abrir o app"
-              onPress={() => setBiometricsEnabled(!settings.biometricsEnabled)}
+              onPress={async () => {
+                if (settings.biometricsEnabled) {
+                  setBiometricsEnabled(false);
+                  return;
+                }
+                const check = await verifyBiometricsForEnable();
+                if (check.ok) setBiometricsEnabled(true);
+                else Alert.alert("Proteção biométrica", check.message);
+              }}
               right={
                 <View
                   style={{

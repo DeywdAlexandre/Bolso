@@ -1,0 +1,15 @@
+# Publica no app instalado (APK) toda mudança só de código que chegar na main.
+# Mudança nativa (nova biblioteca, plugin, permissão) NÃO entra por aqui: exige subir a versão
+# em app.json ("version") e gerar um APK novo — só então o runtimeVersion muda e o APK novo passa a receber as atualizações.
+name: Publicar atualização
+
+on:
+  push:
+    branches: ['main']
+
+jobs:
+  publish_update:
+    name: Atualização do app (OTA)
+    type: update
+    params:
+      channel: preview
