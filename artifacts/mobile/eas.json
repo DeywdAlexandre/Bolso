@@ -16,14 +16,14 @@
       "distribution": "internal",
       "channel": "preview",
       "android": {
-        "buildType": "apk"
+        "buildType": "apk",
+        "image": "latest"
       },
       "ios": {
         "simulator": true
       },
       "node": "20.19.4",
-      "pnpm": "10.28.0",
-      "image": "latest"
+      "pnpm": "10.28.0"
     },
     "production": {
       "channel": "production",
