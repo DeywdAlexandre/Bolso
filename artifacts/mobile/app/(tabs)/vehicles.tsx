@@ -8,7 +8,10 @@ import { EmptyState } from "@/components/EmptyState";
 import { IconCircle } from "@/components/IconCircle";
 import { useAppData } from "@/contexts/AppDataContext";
 import { useColors } from "@/hooks/useColors";
-import { formatCurrency } from "@/lib/format";
+import { OilStatusChip } from "@/components/vehicle/OilStatusChip";
+import { VehiclesSummaryCard } from "@/components/vehicle/VehiclesSummaryCard";
+import { formatCurrency, toIsoDay } from "@/lib/format";
+import { computeMonthComparison } from "@/lib/vehicleSummary";
 import {
   computeVehicleStats,
   formatKm,
@@ -24,6 +27,12 @@ export default function VehiclesScreen() {
   const sorted = useMemo(
     () => [...vehicles].sort((a, b) => a.name.localeCompare(b.name)),
     [vehicles],
+  );
+
+  const monthKey = toIsoDay(new Date()).slice(0, 7);
+  const summary = useMemo(
+    () => computeMonthComparison({ fuelings, oilChanges, expenses: vehicleExpenses }, monthKey),
+    [fuelings, oilChanges, vehicleExpenses, monthKey],
   );
 
   const topPad = Platform.OS === "web" ? 15 : insets.top;
@@ -59,6 +68,8 @@ export default function VehiclesScreen() {
             <Feather name="plus" size={20} color={colors.primaryForeground} />
           </Pressable>
         </View>
+
+        {sorted.length > 0 && <VehiclesSummaryCard monthKey={monthKey} summary={summary} />}
 
         {sorted.length === 0 ? (
           <View style={{ paddingTop: 40 }}>
@@ -145,12 +156,51 @@ export default function VehiclesScreen() {
                     }
                   />
                 </View>
+
+                <OilStatusChip stats={stats} />
+
+                <View style={styles.quickRow}>
+                  <QuickAction
+                    icon="droplet"
+                    label="Abastecer"
+                    onPress={() => router.push(`/fueling/new?vehicleId=${v.id}`)}
+                  />
+                  <QuickAction
+                    icon="settings"
+                    label={stats.lastOilChange ? "Troca de óleo" : "Registrar óleo"}
+                    onPress={() => router.push(`/oilchange/new?vehicleId=${v.id}`)}
+                  />
+                </View>
               </Pressable>
             );
           })
         )}
       </ScrollView>
     </View>
+  );
+}
+
+function QuickAction({
+  icon,
+  label,
+  onPress,
+}: {
+  icon: keyof typeof Feather.glyphMap;
+  label: string;
+  onPress: () => void;
+}) {
+  const colors = useColors();
+  return (
+    <Pressable
+      onPress={onPress}
+      style={({ pressed }) => [
+        styles.quickBtn,
+        { backgroundColor: colors.primary + "15", opacity: pressed ? 0.8 : 1 },
+      ]}
+    >
+      <Feather name={icon} size={14} color={colors.primary} />
+      <Text style={{ color: colors.primary, fontSize: 13, fontFamily: "Inter_600SemiBold" }}>{label}</Text>
+    </Pressable>
   );
 }
 
@@ -241,6 +291,16 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontFamily: "Inter_500Medium",
     marginTop: 2,
+  },
+  quickRow: { flexDirection: "row", gap: 10 },
+  quickBtn: {
+    flex: 1,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 6,
+    paddingVertical: 10,
+    borderRadius: 12,
   },
   statsRow: {
     flexDirection: "row",
