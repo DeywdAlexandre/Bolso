@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { genId } from "@/lib/format";
 import { saveJson, STORAGE_KEYS, loadJson } from "@/lib/storage";
-import type { Vehicle, Fueling, OilChange, VehicleExpense, Transaction } from "@/lib/types";
+import type { Vehicle, Fueling, OilChange, VehicleExpense, VehicleReminder, Transaction } from "@/lib/types";
 
 interface UseVehiclesStateProps {
   addTransaction: (input: Omit<Transaction, "id" | "createdAt">) => Promise<Transaction>;
@@ -14,21 +14,24 @@ export function useVehiclesState({ addTransaction, removeTransaction }: UseVehic
   const [fuelings, setFuelings] = useState<Fueling[]>([]);
   const [oilChanges, setOilChanges] = useState<OilChange[]>([]);
   const [vehicleExpenses, setVehicleExpenses] = useState<VehicleExpense[]>([]);
+  const [vehicleReminders, setVehicleReminders] = useState<VehicleReminder[]>([]);
 
   // Carregamento inicial do armazenamento local
   useEffect(() => {
     (async () => {
-      const [veh, fue, oil, vex] = await Promise.all([
+      const [veh, fue, oil, vex, vrm] = await Promise.all([
         loadJson<Vehicle[]>(STORAGE_KEYS.vehicles, []),
         loadJson<Fueling[]>(STORAGE_KEYS.fuelings, []),
         loadJson<OilChange[]>(STORAGE_KEYS.oilChanges, []),
         loadJson<VehicleExpense[]>(STORAGE_KEYS.vehicleExpenses, []),
+        loadJson<VehicleReminder[]>(STORAGE_KEYS.vehicleReminders, []),
       ]);
 
       setVehicles(veh);
       setFuelings(fue);
       setOilChanges(oil);
       setVehicleExpenses(vex);
+      setVehicleReminders(vrm);
       setReady(true);
     })();
   }, []);
@@ -67,6 +70,39 @@ export function useVehiclesState({ addTransaction, removeTransaction }: UseVehic
     setOilChanges((prev) => {
       const next = prev.filter((o) => o.vehicleId !== id);
       void saveJson(STORAGE_KEYS.oilChanges, next);
+      return next;
+    });
+    setVehicleReminders((prev) => {
+      const next = prev.filter((r) => r.vehicleId !== id);
+      void saveJson(STORAGE_KEYS.vehicleReminders, next);
+      return next;
+    });
+  }, []);
+
+  const addVehicleReminder = useCallback(async (input: Omit<VehicleReminder, "id" | "createdAt">) => {
+    const now = new Date().toISOString();
+    const r: VehicleReminder = { ...input, id: "vrm_" + genId(), createdAt: now, updatedAt: now };
+    setVehicleReminders((prev) => {
+      const next = [r, ...prev];
+      void saveJson(STORAGE_KEYS.vehicleReminders, next);
+      return next;
+    });
+    return r;
+  }, []);
+
+  const updateVehicleReminder = useCallback(async (id: string, patch: Partial<VehicleReminder>) => {
+    const now = new Date().toISOString();
+    setVehicleReminders((prev) => {
+      const next = prev.map((r) => (r.id === id ? { ...r, ...patch, updatedAt: now } : r));
+      void saveJson(STORAGE_KEYS.vehicleReminders, next);
+      return next;
+    });
+  }, []);
+
+  const removeVehicleReminder = useCallback(async (id: string) => {
+    setVehicleReminders((prev) => {
+      const next = prev.filter((r) => r.id !== id);
+      void saveJson(STORAGE_KEYS.vehicleReminders, next);
       return next;
     });
   }, []);
@@ -171,11 +207,13 @@ export function useVehiclesState({ addTransaction, removeTransaction }: UseVehic
     setFuelings([]);
     setOilChanges([]);
     setVehicleExpenses([]);
+    setVehicleReminders([]);
     await Promise.all([
       saveJson(STORAGE_KEYS.vehicles, []),
       saveJson(STORAGE_KEYS.fuelings, []),
       saveJson(STORAGE_KEYS.oilChanges, []),
       saveJson(STORAGE_KEYS.vehicleExpenses, []),
+      saveJson(STORAGE_KEYS.vehicleReminders, []),
     ]);
   }, []);
 
@@ -184,6 +222,7 @@ export function useVehiclesState({ addTransaction, removeTransaction }: UseVehic
     fuelings?: Fueling[];
     oilChanges?: OilChange[];
     vehicleExpenses?: VehicleExpense[];
+    vehicleReminders?: VehicleReminder[];
   }) => {
     if (data.vehicles) {
       setVehicles(data.vehicles);
@@ -201,6 +240,10 @@ export function useVehiclesState({ addTransaction, removeTransaction }: UseVehic
       setVehicleExpenses(data.vehicleExpenses);
       await saveJson(STORAGE_KEYS.vehicleExpenses, data.vehicleExpenses);
     }
+    if (data.vehicleReminders) {
+      setVehicleReminders(data.vehicleReminders);
+      await saveJson(STORAGE_KEYS.vehicleReminders, data.vehicleReminders);
+    }
   }, []);
 
   return {
@@ -209,6 +252,10 @@ export function useVehiclesState({ addTransaction, removeTransaction }: UseVehic
     fuelings,
     oilChanges,
     vehicleExpenses,
+    vehicleReminders,
+    addVehicleReminder,
+    updateVehicleReminder,
+    removeVehicleReminder,
     addVehicle,
     updateVehicle,
     removeVehicle,

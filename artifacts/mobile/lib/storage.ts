@@ -16,6 +16,7 @@ export const STORAGE_KEYS = {
   goals: "@prisma/goals/v1",
   goalDeposits: "@prisma/goal_deposits/v1",
   vehicleExpenses: "@prisma/vehicle_expenses/v1",
+  vehicleReminders: "@prisma/vehicle_reminders/v1",
   shifts: "@prisma/shifts/v1",
   shiftRules: "@prisma/shiftrules/v1",
   shiftTemplates: "@prisma/shifttemplates/v1",

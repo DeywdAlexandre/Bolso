@@ -19,6 +19,7 @@ const backupSchema = z.object({
       fuelings: records,
       oilChanges: records,
       vehicleExpenses: records,
+      vehicleReminders: records,
       loanContacts: records,
       loans: records,
       loanPayments: records,

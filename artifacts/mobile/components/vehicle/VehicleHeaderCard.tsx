@@ -1,5 +1,5 @@
 import React from "react";
-import { StyleSheet, Text, View } from "react-native";
+import { Image, StyleSheet, Text, View } from "react-native";
 import { IconCircle } from "@/components/IconCircle";
 import { useColors } from "@/hooks/useColors";
 import { FUEL_TYPE_LABELS } from "@/lib/vehicleStats";
@@ -18,6 +18,7 @@ export function VehicleHeaderCard({ vehicle, accent, stats }: VehicleHeaderCardP
 
   return (
     <View style={[styles.headerCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
+      {vehicle.photo ? <Image source={{ uri: vehicle.photo }} style={styles.photo} resizeMode="cover" /> : null}
       <View style={styles.top}>
         <IconCircle name={vehicle.icon || "truck"} color={accent} size={56} />
         <View style={{ flex: 1 }}>
@@ -42,6 +43,7 @@ export function VehicleHeaderCard({ vehicle, accent, stats }: VehicleHeaderCardP
 }
 
 const styles = StyleSheet.create({
+  photo: { width: "100%", height: 160, borderRadius: 12 },
   top: { flexDirection: "row", alignItems: "center", gap: 14 },
   odoRow: { flexDirection: "row", alignItems: "baseline", gap: 8 },
   odo: { fontSize: 34, fontFamily: "Inter_700Bold", letterSpacing: -0.5 },

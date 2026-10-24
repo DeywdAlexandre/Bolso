@@ -1,6 +1,7 @@
 import React, { useMemo, useState } from "react";
 import {
   Alert,
+  Image,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -14,6 +15,7 @@ import { router, Stack, useLocalSearchParams } from "expo-router";
 import { useAppData } from "@/contexts/AppDataContext";
 import { useColors } from "@/hooks/useColors";
 import type { FuelType } from "@/lib/types";
+import { pickVehiclePhoto } from "@/lib/vehiclePhoto";
 import { FUEL_TYPE_LABELS } from "@/lib/vehicleStats";
 
 const VEHICLE_ICONS = [
@@ -52,9 +54,19 @@ export default function VehicleFormScreen() {
   const [fuelType, setFuelType] = useState<FuelType>(editing?.fuelType ?? "flex");
   const [icon, setIcon] = useState<string>(editing?.icon ?? "truck");
   const [color, setColor] = useState<string>(editing?.color ?? VEHICLE_COLORS[0]!);
+  const [photo, setPhoto] = useState<string | undefined>(editing?.photo);
   const [odoStr, setOdoStr] = useState<string>(
     editing?.initialOdometer != null ? String(editing.initialOdometer) : "",
   );
+
+  const handlePhoto = () => {
+    Alert.alert("Foto do veículo", "Escolha uma opção", [
+      { text: "Galeria", onPress: async () => setPhoto((await pickVehiclePhoto("gallery")) ?? photo) },
+      { text: "Câmera", onPress: async () => setPhoto((await pickVehiclePhoto("camera")) ?? photo) },
+      ...(photo ? [{ text: "Remover foto", style: "destructive" as const, onPress: () => setPhoto(undefined) }] : []),
+      { text: "Cancelar", style: "cancel" as const },
+    ]);
+  };
 
   const handleSubmit = async () => {
     const trimmed = name.trim();
@@ -71,6 +83,7 @@ export default function VehicleFormScreen() {
       icon,
       color,
       initialOdometer,
+      photo,
     };
     if (isEdit && editing) {
       await updateVehicle(editing.id, payload);
@@ -124,6 +137,32 @@ export default function VehicleFormScreen() {
               },
             ]}
           />
+        </Field>
+
+        <Field label="Foto">
+          <Pressable
+            onPress={handlePhoto}
+            style={{
+              height: 150,
+              borderRadius: 14,
+              borderWidth: 1,
+              borderColor: colors.border,
+              backgroundColor: colors.card,
+              overflow: "hidden",
+              alignItems: "center",
+              justifyContent: "center",
+              gap: 6,
+            }}
+          >
+            {photo ? (
+              <Image source={{ uri: photo }} style={{ width: "100%", height: "100%" }} resizeMode="cover" />
+            ) : (
+              <>
+                <Feather name="camera" size={24} color={colors.mutedForeground} />
+                <Text style={{ color: colors.mutedForeground, fontSize: 13 }}>Adicionar foto (opcional)</Text>
+              </>
+            )}
+          </Pressable>
         </Field>
 
         <Field label="Combustível">

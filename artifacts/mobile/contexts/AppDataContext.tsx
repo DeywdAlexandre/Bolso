@@ -23,6 +23,7 @@ import type {
   Transaction,
   Vehicle,
   VehicleExpense,
+  VehicleReminder,
   LoanContact,
   Loan,
   LoanPayment,
@@ -52,6 +53,7 @@ type AppDataContextValue = {
   fuelings: Fueling[];
   oilChanges: OilChange[];
   vehicleExpenses: VehicleExpense[];
+  vehicleReminders: VehicleReminder[];
   loanContacts: LoanContact[];
   loans: Loan[];
   loanPayments: LoanPayment[];
@@ -101,6 +103,9 @@ type AppDataContextValue = {
   removeOilChange: (id: string) => Promise<void>;
   addVehicleExpense: (input: Omit<VehicleExpense, "id" | "createdAt">) => Promise<VehicleExpense>;
   removeVehicleExpense: (id: string) => Promise<void>;
+  addVehicleReminder: (input: Omit<VehicleReminder, "id" | "createdAt">) => Promise<VehicleReminder>;
+  updateVehicleReminder: (id: string, patch: Partial<VehicleReminder>) => Promise<void>;
+  removeVehicleReminder: (id: string) => Promise<void>;
   addLoanContact: (input: Omit<LoanContact, "id" | "createdAt">) => Promise<LoanContact>;
   updateLoanContact: (id: string, patch: Partial<LoanContact>) => Promise<void>;
   removeLoanContact: (id: string) => Promise<void>;
@@ -143,6 +148,7 @@ type BackupPayload = {
   fuelings?: Fueling[];
   oilChanges?: OilChange[];
   vehicleExpenses?: VehicleExpense[];
+  vehicleReminders?: VehicleReminder[];
   loanContacts?: LoanContact[];
   loans?: Loan[];
   loanPayments?: LoanPayment[];
@@ -313,6 +319,7 @@ export function AppDataProvider({ children }: { children: React.ReactNode }) {
         goals: goalState.goals,
         goalDeposits: goalState.goalDeposits,
         vehicleExpenses: vehState.vehicleExpenses,
+        vehicleReminders: vehState.vehicleReminders,
         userName,
         shifts: shiftState.shifts,
         shiftRules: shiftState.shiftRules,
@@ -324,7 +331,7 @@ export function AppDataProvider({ children }: { children: React.ReactNode }) {
     return JSON.stringify(payload);
   }, [
     txState.transactions, txState.recurring, txState.categories,
-    vehState.vehicles, vehState.fuelings, vehState.oilChanges, vehState.vehicleExpenses,
+    vehState.vehicles, vehState.fuelings, vehState.oilChanges, vehState.vehicleExpenses, vehState.vehicleReminders,
     loanState.loanContacts, loanState.loans, loanState.loanPayments,
     goalState.goals, goalState.goalDeposits, userName,
     shiftState.shifts, shiftState.shiftRules, shiftState.shiftTemplates, accountsState.accounts, accountsState.transfers
@@ -358,6 +365,7 @@ export function AppDataProvider({ children }: { children: React.ReactNode }) {
           fuelings: p.fuelings,
           oilChanges: p.oilChanges,
           vehicleExpenses: p.vehicleExpenses,
+          vehicleReminders: p.vehicleReminders,
         }),
         loanState.importState({
           loanContacts: p.loanContacts,
@@ -433,6 +441,10 @@ export function AppDataProvider({ children }: { children: React.ReactNode }) {
       fuelings: vehState.fuelings,
       oilChanges: vehState.oilChanges,
       vehicleExpenses: vehState.vehicleExpenses,
+      vehicleReminders: vehState.vehicleReminders,
+      addVehicleReminder: vehState.addVehicleReminder,
+      updateVehicleReminder: vehState.updateVehicleReminder,
+      removeVehicleReminder: vehState.removeVehicleReminder,
       addVehicle: vehState.addVehicle,
       updateVehicle: vehState.updateVehicle,
       removeVehicle: vehState.removeVehicle,

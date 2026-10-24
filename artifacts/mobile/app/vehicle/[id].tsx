@@ -25,6 +25,7 @@ import { VehicleSegmentsCard } from "@/components/vehicle/VehicleSegmentsCard";
 import { VehicleOilCard } from "@/components/vehicle/VehicleOilCard";
 import { VehicleHistoryList } from "@/components/vehicle/VehicleHistoryList";
 import { BarChart } from "@/components/vehicle/BarChart";
+import { VehicleRemindersCard } from "@/components/vehicle/VehicleRemindersCard";
 import { CostBreakdownCard } from "@/components/vehicle/CostBreakdownCard";
 import { ExtraExpenseModal } from "@/components/vehicle/ExtraExpenseModal";
 
@@ -153,6 +154,7 @@ export default function VehicleDetailScreen() {
           <>
             <VehicleStatsGrid stats={stats} monthSpent={monthSpent} />
             <VehicleOilCard stats={stats} />
+            <VehicleRemindersCard vehicleId={vehicle.id} />
             <CostBreakdownCard breakdown={breakdown} />
           </>
         )}
