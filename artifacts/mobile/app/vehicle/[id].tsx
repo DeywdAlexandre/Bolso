@@ -1,4 +1,4 @@
-import React, { useMemo } from "react";
+import React, { useMemo, useState } from "react";
 import {
   Pressable,
   ScrollView,
@@ -13,6 +13,9 @@ import { useAppData } from "@/contexts/AppDataContext";
 import { useColors } from "@/hooks/useColors";
 import { toIsoDay } from "@/lib/format";
 import { computeMonthComparison } from "@/lib/vehicleSummary";
+import { consumptionSeries, costBreakdown, priceSeries } from "@/lib/vehicleCharts";
+import { formatKmPerLiter } from "@/lib/vehicleStats";
+import { formatCurrency } from "@/lib/format";
 import { useVehicle } from "@/hooks/useVehicle";
 
 import { VehicleHeaderCard } from "@/components/vehicle/VehicleHeaderCard";
@@ -21,7 +24,17 @@ import { VehicleStatsGrid } from "@/components/vehicle/VehicleStatsGrid";
 import { VehicleSegmentsCard } from "@/components/vehicle/VehicleSegmentsCard";
 import { VehicleOilCard } from "@/components/vehicle/VehicleOilCard";
 import { VehicleHistoryList } from "@/components/vehicle/VehicleHistoryList";
+import { BarChart } from "@/components/vehicle/BarChart";
+import { CostBreakdownCard } from "@/components/vehicle/CostBreakdownCard";
 import { ExtraExpenseModal } from "@/components/vehicle/ExtraExpenseModal";
+
+type Tab = "overview" | "consumption" | "history";
+
+const TABS: { key: Tab; label: string }[] = [
+  { key: "overview", label: "Visão geral" },
+  { key: "consumption", label: "Consumo" },
+  { key: "history", label: "Histórico" },
+];
 
 export default function VehicleDetailScreen() {
   const colors = useColors();
@@ -49,6 +62,18 @@ export default function VehicleDetailScreen() {
         toIsoDay(new Date()).slice(0, 7),
       ).spent,
     [fuelings, oilChanges, vehicleExpenses, id],
+  );
+
+  const [tab, setTab] = useState<Tab>("overview");
+  const myFuelings = useMemo(() => fuelings.filter((f) => f.vehicleId === id), [fuelings, id]);
+  const breakdown = useMemo(
+    () =>
+      costBreakdown({
+        fuelings: myFuelings,
+        oilChanges: oilChanges.filter((o) => o.vehicleId === id),
+        expenses: vehicleExpenses.filter((e) => e.vehicleId === id),
+      }),
+    [myFuelings, oilChanges, vehicleExpenses, id],
   );
 
   if (!vehicle || !stats) {
@@ -104,13 +129,55 @@ export default function VehicleDetailScreen() {
           onOpenExtraExpense={() => setExtraModalVisible(true)}
         />
 
-        <VehicleStatsGrid stats={stats} monthSpent={monthSpent} />
+        <View style={styles.tabs}>
+          {TABS.map((t) => {
+            const active = t.key === tab;
+            return (
+              <Pressable
+                key={t.key}
+                onPress={() => setTab(t.key)}
+                style={[
+                  styles.tab,
+                  { backgroundColor: active ? accent : colors.card, borderColor: active ? accent : colors.border },
+                ]}
+              >
+                <Text style={{ fontSize: 13, fontFamily: "Inter_600SemiBold", color: active ? colors.primaryForeground : colors.mutedForeground }}>
+                  {t.label}
+                </Text>
+              </Pressable>
+            );
+          })}
+        </View>
 
-        <VehicleSegmentsCard segments={stats.segments} openSegment={stats.openSegment} />
+        {tab === "overview" && (
+          <>
+            <VehicleStatsGrid stats={stats} monthSpent={monthSpent} />
+            <VehicleOilCard stats={stats} />
+            <CostBreakdownCard breakdown={breakdown} />
+          </>
+        )}
 
-        <VehicleOilCard stats={stats} />
+        {tab === "consumption" && (
+          <>
+            <BarChart
+              title="Consumo por trecho (km/L)"
+              points={consumptionSeries(stats.segments)}
+              color={accent}
+              format={formatKmPerLiter}
+              empty="Precisa de pelo menos dois trechos medidos para mostrar a evolução."
+            />
+            <BarChart
+              title="Preço do litro"
+              points={priceSeries(myFuelings)}
+              color={colors.accent}
+              format={formatCurrency}
+              empty="Precisa de pelo menos dois abastecimentos para mostrar a evolução."
+            />
+            <VehicleSegmentsCard segments={stats.segments} openSegment={stats.openSegment} />
+          </>
+        )}
 
-        <VehicleHistoryList entries={entries} onDeleteEntry={handleDeleteEntry} />
+        {tab === "history" && <VehicleHistoryList entries={entries} onDeleteEntry={handleDeleteEntry} />}
       </ScrollView>
 
       <ExtraExpenseModal
@@ -123,6 +190,8 @@ export default function VehicleDetailScreen() {
 }
 
 const styles = StyleSheet.create({
+  tabs: { flexDirection: "row", gap: 8 },
+  tab: { flex: 1, alignItems: "center", paddingVertical: 10, borderRadius: 12, borderWidth: 1 },
   container: {
     padding: 20,
     paddingBottom: 60,

@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useMemo, useState } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 import { router } from "expo-router";
 import { EmptyState } from "@/components/EmptyState";
@@ -6,7 +6,23 @@ import { IconCircle } from "@/components/IconCircle";
 import { useColors } from "@/hooks/useColors";
 import { formatCurrency, formatDate } from "@/lib/format";
 import { formatKm, formatLiters } from "@/lib/vehicleStats";
+import { monthTotals } from "@/lib/vehicleCharts";
 import type { Entry } from "@/hooks/useVehicle";
+
+type Filter = "all" | Entry["kind"];
+
+const FILTERS: { key: Filter; label: string }[] = [
+  { key: "all", label: "Tudo" },
+  { key: "fueling", label: "Abastecimentos" },
+  { key: "oilchange", label: "Óleo" },
+  { key: "vehicleexpense", label: "Gastos" },
+];
+
+const MONTHS = ["Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho", "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro"];
+
+function entryAmount(e: Entry): number {
+  return e.kind === "fueling" ? e.data.totalCost : e.kind === "oilchange" ? e.data.cost || 0 : e.data.amount;
+}
 
 interface VehicleHistoryListProps {
   entries: Entry[];
@@ -15,12 +31,42 @@ interface VehicleHistoryListProps {
 
 export function VehicleHistoryList({ entries, onDeleteEntry }: VehicleHistoryListProps) {
   const colors = useColors();
+  const [filter, setFilter] = useState<Filter>("all");
+
+  const shown = useMemo(() => (filter === "all" ? entries : entries.filter((e) => e.kind === filter)), [entries, filter]);
+  const totals = useMemo(
+    () => new Map(monthTotals(shown.map((e) => ({ date: e.data.date, amount: entryAmount(e) }))).map((m) => [m.key, m.total])),
+    [shown],
+  );
 
   return (
     <View style={styles.historyContainer}>
       <Text style={[styles.sectionTitle, { color: colors.foreground }]}>
         Histórico
       </Text>
+      <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8 }}>
+        {FILTERS.map((f) => {
+          const active = f.key === filter;
+          return (
+            <Pressable
+              key={f.key}
+              onPress={() => setFilter(f.key)}
+              style={{
+                paddingHorizontal: 12,
+                paddingVertical: 6,
+                borderRadius: 999,
+                borderWidth: 1,
+                borderColor: active ? colors.primary : colors.border,
+                backgroundColor: active ? colors.primary + "22" : colors.card,
+              }}
+            >
+              <Text style={{ fontSize: 12, fontFamily: "Inter_600SemiBold", color: active ? colors.primary : colors.mutedForeground }}>
+                {f.label}
+              </Text>
+            </Pressable>
+          );
+        })}
+      </View>
       {entries.length === 0 ? (
         <EmptyState
           icon="clock"
@@ -28,9 +74,22 @@ export function VehicleHistoryList({ entries, onDeleteEntry }: VehicleHistoryLis
           description="Adicione um abastecimento ou troca de óleo acima."
         />
       ) : (
-        entries.map((entry) => (
+        shown.map((entry, idx) => {
+          const month = entry.data.date.slice(0, 7);
+          const newMonth = idx === 0 || shown[idx - 1]!.data.date.slice(0, 7) !== month;
+          return (
+          <React.Fragment key={`${entry.kind}-${entry.data.id}`}>
+          {newMonth && (
+            <View style={{ flexDirection: "row", justifyContent: "space-between", marginTop: idx === 0 ? 0 : 8 }}>
+              <Text style={{ color: colors.mutedForeground, fontSize: 12, fontFamily: "Inter_700Bold", textTransform: "uppercase" }}>
+                {MONTHS[Number(month.slice(5, 7)) - 1]} {month.slice(0, 4)}
+              </Text>
+              <Text style={{ color: colors.mutedForeground, fontSize: 12, fontFamily: "Inter_600SemiBold" }}>
+                {formatCurrency(totals.get(month) ?? 0)}
+              </Text>
+            </View>
+          )}
           <Pressable
-            key={`${entry.kind}-${entry.data.id}`}
             onPress={() => {
               if (entry.kind === "fueling") {
                 router.push(`/fueling/${entry.data.id}`);
@@ -108,7 +167,9 @@ export function VehicleHistoryList({ entries, onDeleteEntry }: VehicleHistoryLis
                   : formatCurrency(entry.data.amount)}
             </Text>
           </Pressable>
-        ))
+          </React.Fragment>
+          );
+        })
       )}
     </View>
   );
