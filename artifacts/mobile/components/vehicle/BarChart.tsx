@@ -21,6 +21,9 @@ export function BarChart({
 }) {
   const colors = useColors();
   const max = Math.max(...points.map((p) => p.value), 0);
+  const min = points.length ? Math.min(...points.map((p) => p.value)) : 0;
+  // Base abaixo do menor valor: valores próximos (ex.: 11,8 e 12,5 km/L) ficam com barras visivelmente diferentes.
+  const base = Math.max(min - (max - min), 0);
   const avg = points.length ? points.reduce((s, p) => s + p.value, 0) / points.length : 0;
 
   return (
@@ -37,7 +40,7 @@ export function BarChart({
         <View style={styles.row}>
           {points.map((p, i) => {
             const isLast = i === points.length - 1;
-            const h = max > 0 ? Math.max((p.value / max) * BAR_AREA, 4) : 4;
+            const h = max > base ? Math.max(((p.value - base) / (max - base)) * BAR_AREA, 8) : BAR_AREA * 0.6;
             return (
               <View key={`${p.label}-${i}`} style={styles.col}>
                 <Text style={[styles.value, { color: isLast ? colors.foreground : colors.mutedForeground }]} numberOfLines={1}>

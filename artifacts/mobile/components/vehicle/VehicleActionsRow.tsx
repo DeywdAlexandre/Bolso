@@ -59,8 +59,8 @@ function ActionButton({ icon, label, color, onPress }: ActionButtonProps) {
     >
       <View
         style={{
-          width: 36,
-          height: 36,
+          width: 32,
+          height: 32,
           borderRadius: 12,
           backgroundColor: color + "26",
           alignItems: "center",
@@ -83,15 +83,15 @@ const styles = StyleSheet.create({
   },
   actionBtn: {
     flex: 1,
-    flexDirection: "row",
     alignItems: "center",
-    gap: 10,
-    paddingHorizontal: 14,
+    gap: 6,
+    paddingHorizontal: 6,
     paddingVertical: 12,
     borderRadius: 14,
     borderWidth: 1,
   },
   actionLabel: {
+    flexShrink: 1,
     fontSize: 14,
     fontFamily: "Inter_600SemiBold",
   },
