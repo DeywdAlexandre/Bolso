@@ -125,6 +125,12 @@ export default function SettingsScreen() {
               onPress={() => router.push("/settings/customize-tabs" as any)}
             />
             <SettingsRow
+              icon="bell"
+              title="Notificações"
+              subtitle="Vencimentos, escalas, veículos e faturas"
+              onPress={() => router.push("/notifications" as any)}
+            />
+            <SettingsRow
               icon="shield"
               title="Proteção Biométrica"
               subtitle="Solicitar digital ou face ao abrir o app"
