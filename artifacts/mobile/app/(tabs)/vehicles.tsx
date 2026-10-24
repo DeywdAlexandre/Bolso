@@ -1,5 +1,5 @@
 import React, { useMemo } from "react";
-import { Platform, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { Image, Platform, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { Feather } from "@expo/vector-icons";
 import { router } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -12,6 +12,7 @@ import { OilStatusChip } from "@/components/vehicle/OilStatusChip";
 import { VehiclesSummaryCard } from "@/components/vehicle/VehiclesSummaryCard";
 import { formatCurrency, toIsoDay } from "@/lib/format";
 import { computeMonthComparison } from "@/lib/vehicleSummary";
+import { mostUrgent, reminderLabel, reminderStatus } from "@/lib/vehicleReminders";
 import {
   computeVehicleStats,
   formatKm,
@@ -22,7 +23,7 @@ import {
 export default function VehiclesScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
-  const { vehicles, fuelings, oilChanges, vehicleExpenses } = useAppData();
+  const { vehicles, fuelings, oilChanges, vehicleExpenses, vehicleReminders } = useAppData();
 
   const sorted = useMemo(
     () => [...vehicles].sort((a, b) => a.name.localeCompare(b.name)),
@@ -97,7 +98,11 @@ export default function VehiclesScreen() {
                 ]}
               >
                 <View style={styles.cardHead}>
-                  <IconCircle name={v.icon || "truck"} color={accent} size={48} />
+                  {v.photo ? (
+                    <Image source={{ uri: v.photo }} style={{ width: 48, height: 48, borderRadius: 24 }} />
+                  ) : (
+                    <IconCircle name={v.icon || "truck"} color={accent} size={48} />
+                  )}
                   <View style={{ flex: 1 }}>
                     <Text
                       style={[styles.vName, { color: colors.foreground }]}
@@ -158,6 +163,21 @@ export default function VehiclesScreen() {
                 </View>
 
                 <OilStatusChip stats={stats} />
+                {(() => {
+                  const next = mostUrgent(vehicleReminders.filter((r) => r.vehicleId === v.id));
+                  if (!next) return null;
+                  const st = reminderStatus(next);
+                  if (st.state === "ok") return null;
+                  const color = st.state === "overdue" ? colors.destructive : colors.accent;
+                  return (
+                    <View style={[styles.reminderChip, { backgroundColor: color + "1f" }]}>
+                      <Feather name="calendar" size={13} color={color} />
+                      <Text style={{ color, fontSize: 12, fontFamily: "Inter_600SemiBold" }} numberOfLines={1}>
+                        {next.title} {reminderLabel(st)}
+                      </Text>
+                    </View>
+                  );
+                })()}
 
                 <View style={styles.quickRow}>
                   <QuickAction
@@ -291,6 +311,15 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontFamily: "Inter_500Medium",
     marginTop: 2,
+  },
+  reminderChip: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    alignSelf: "flex-start",
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 999,
   },
   quickRow: { flexDirection: "row", gap: 10 },
   quickBtn: {

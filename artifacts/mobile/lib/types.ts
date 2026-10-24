@@ -163,6 +163,25 @@ export type Vehicle = {
   color?: string;
   icon?: string;
   initialOdometer?: number;
+  /** Foto do veículo (caminho de arquivo local no app). */
+  photo?: string;
+  createdAt: string;
+  updatedAt?: string; // ISO
+};
+
+export type VehicleReminderKind = "ipva" | "seguro" | "licenciamento" | "revisao" | "outro";
+
+/** Vencimento anual ou pontual de um veículo (IPVA, seguro, licenciamento, revisão…). */
+export type VehicleReminder = {
+  id: string;
+  vehicleId: string;
+  kind: VehicleReminderKind;
+  title: string;
+  dueDate: string; // YYYY-MM-DD
+  /** Ao concluir, o vencimento avança um ano em vez de encerrar o lembrete. */
+  repeatsYearly?: boolean;
+  /** Preenchido quando um lembrete sem repetição é concluído. */
+  doneAt?: string; // ISO
   createdAt: string;
   updatedAt?: string; // ISO
 };
