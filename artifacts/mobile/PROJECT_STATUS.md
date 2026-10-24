@@ -126,3 +126,11 @@ O **Prisma** é um assistente financeiro pessoal "Offline-First" com inteligênc
 
 ---
 *Atualizado por Antigravity em 06/05/2026 - Versão Premium 1.5.1 (Stabilization)*
+
+## 🔔 Notificações
+
+- Tudo é calculado em `lib/notificationPlan.ts` (função pura, testada): empréstimos, gastos fixos/assinaturas, veículos (IPVA, seguro, revisão, óleo), escalas e faturas de cartão, nos próximos 60 dias (máx. 120 avisos).
+- `lib/notifications.ts` só agenda no aparelho (canal Android "Lembretes", fila de sincronização, toque abre a tela do assunto).
+- Preferências em Configurações → Notificações (ficam no aparelho, fora do backup). O plano é refeito quando os dados mudam e ao voltar para o app.
+- Tudo é JS: não exige novo APK. Ícone/som próprio da notificação exigiriam (plugin `expo-notifications`).
+

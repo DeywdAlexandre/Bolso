@@ -6,7 +6,7 @@ import {
   useFonts,
 } from "@expo-google-fonts/inter";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { Stack } from "expo-router";
+import { router, Stack } from "expo-router";
 import * as SplashScreen from "expo-splash-screen";
 import { StatusBar } from "expo-status-bar";
 import * as Updates from "expo-updates";
@@ -17,6 +17,7 @@ import { SafeAreaProvider } from "react-native-safe-area-context";
 import { Platform } from "react-native";
 
 import { AuthGuard } from "@/components/AuthGuard";
+import { listenNotificationTaps } from "@/lib/notifications";
 import { registerServiceWorker } from "@/lib/pwa";
 import { migrateLegacyStorage } from "@/lib/storage";
 import { PwaBanners } from "@/components/pwa/PwaBanners";
@@ -36,6 +37,9 @@ const queryClient = new QueryClient();
 
 function RootLayoutNav() {
   const colors = useColors();
+
+  // Tocar num aviso abre a tela do assunto (empréstimo, veículo, escalas...).
+  useEffect(() => listenNotificationTaps((route) => router.push(route as never)), []);
   
   return (
     <Stack
@@ -77,6 +81,7 @@ function RootLayoutNav() {
         }}
       />
       <Stack.Screen name="settings" options={{ title: "Configurações" }} />
+      <Stack.Screen name="notifications" options={{ title: "Notificações" }} />
       <Stack.Screen name="categories" options={{ title: "Categorias" }} />
       <Stack.Screen name="accounts/index" options={{ title: "Contas e carteira" }} />
       <Stack.Screen name="accounts/[id]" options={{ title: "Conta" }} />

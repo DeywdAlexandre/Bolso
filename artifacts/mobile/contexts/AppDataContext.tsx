@@ -1,5 +1,5 @@
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
-import { Platform } from "react-native";
+import { AppState, Platform } from "react-native";
 
 import { computeBalances, initialBalanceFor, preselectedAccountId, type BalanceSummary } from "@/lib/accounts";
 import { BACKUP_VERSION, parseBackup } from "@/lib/backup";
@@ -7,12 +7,18 @@ import { useSettings } from "@/contexts/SettingsContext";
 import { maybeAutoSnapshot, saveSnapshot } from "@/lib/snapshots";
 import { saveJson, STORAGE_KEYS, loadJson } from "@/lib/storage";
 import { DEFAULT_CATEGORIES } from "@/lib/categories";
-import { 
-  requestNotificationPermissions, 
-  scheduleLoanReminder, 
+import {
   cancelAllNotifications,
-  scheduleRecurringReminder 
+  getNotificationPermission,
+  requestNotificationPermissions,
+  syncNotifications,
 } from "@/lib/notifications";
+import { buildNotificationPlan } from "@/lib/notificationPlan";
+import {
+  DEFAULT_NOTIFICATION_SETTINGS,
+  normalizeNotificationSettings,
+  type NotificationSettings,
+} from "@/lib/notificationSettings";
 import type {
   Account,
   Transfer,
@@ -46,6 +52,8 @@ type AppDataContextValue = {
   ready: boolean;
   userName: string;
   setUserName: (name: string) => Promise<void>;
+  notificationSettings: NotificationSettings;
+  setNotificationSettings: (patch: Partial<NotificationSettings>) => Promise<void>;
   transactions: Transaction[];
   recurring: Recurring[];
   categories: Category[];
@@ -222,71 +230,71 @@ export function AppDataProvider({ children }: { children: React.ReactNode }) {
     accountsState.ready && 
     userNameReady;
 
-  // Lógica central de agendamento de notificações
+  // Preferências de notificação (ficam só neste aparelho, fora do backup)
+  const [notificationSettings, setNotificationSettingsState] = useState<NotificationSettings>(DEFAULT_NOTIFICATION_SETTINGS);
+  const [notificationSettingsReady, setNotificationSettingsReady] = useState(false);
   useEffect(() => {
-    if (!ready || Platform.OS === "web") return;
+    (async () => {
+      const raw = await loadJson<unknown>(STORAGE_KEYS.notificationSettings, null);
+      setNotificationSettingsState(normalizeNotificationSettings(raw));
+      setNotificationSettingsReady(true);
+    })();
+  }, []);
+  const setNotificationSettings = useCallback(async (patch: Partial<NotificationSettings>) => {
+    setNotificationSettingsState((prev) => {
+      const next = normalizeNotificationSettings({ ...prev, ...patch, categories: { ...prev.categories, ...patch.categories } });
+      void saveJson(STORAGE_KEYS.notificationSettings, next);
+      return next;
+    });
+  }, []);
+
+  // Ao voltar para o app, o plano é refeito (avisos de atraso e a janela de 60 dias acompanham o dia de hoje)
+  const [resumeTick, setResumeTick] = useState(0);
+  useEffect(() => {
+    if (Platform.OS === "web") return;
+    const sub = AppState.addEventListener("change", (state) => {
+      if (state === "active") setResumeTick((t) => t + 1);
+    });
+    return () => sub.remove();
+  }, []);
+
+  // Agendamento das notificações: tudo calculado em lib/notificationPlan.ts
+  useEffect(() => {
+    if (!ready || !notificationSettingsReady || Platform.OS === "web") return;
 
     (async () => {
-      const granted = await requestNotificationPermissions();
+      if (!notificationSettings.enabled) {
+        await cancelAllNotifications();
+        return;
+      }
+      const status = await getNotificationPermission();
+      const granted = status === "granted" || (status === "undetermined" && (await requestNotificationPermissions()));
       if (!granted) return;
 
-      await cancelAllNotifications();
-
-      const today = new Date();
-      today.setHours(0, 0, 0, 0);
-
-      // Agendar notificações de empréstimos ativos
-      loanState.loans.forEach(async (loan) => {
-        if (loan.status !== "active") return;
-
-        const contact = loanState.loanContacts.find(c => c.id === loan.contactId);
-        const payments = loanState.loanPayments.filter(p => p.loanId === loan.id);
-        
-        let nextDueDate: Date | null = null;
-        let amountDue = 0;
-
-        if (loan.type === "fixed_installments") {
-          const totalContracted = loan.principalAmount * (1 + loan.interestRate / 100);
-          const installmentValue = totalContracted / (loan.installmentsCount || 1);
-          const paidTotal = payments.reduce((s, p) => s + p.amount, 0);
-          const installmentsPaid = Math.floor(paidTotal / (installmentValue - 0.01));
-
-          if (installmentsPaid < (loan.installmentsCount || 0)) {
-            const date = new Date(loan.startDate);
-            date.setMonth(date.getMonth() + installmentsPaid + 1);
-            nextDueDate = date;
-            amountDue = installmentValue;
-          }
-        } else {
-            const start = new Date(loan.startDate);
-            nextDueDate = new Date(today.getFullYear(), today.getMonth(), start.getDate());
-            const paidPrincipal = payments.reduce((s, p) => s + p.principalPaid, 0);
-            amountDue = ((loan.principalAmount - paidPrincipal) * loan.interestRate) / 100;
-        }
-
-        if (nextDueDate && amountDue > 0) {
-          await scheduleLoanReminder(
-            loan.id,
-            contact?.name || "Empréstimo",
-            loan.description,
-            amountDue,
-            nextDueDate.toISOString()
-          );
-        }
-      });
-
-      // Agendar Lembretes de Gastos Fixos / Assinaturas
-      txState.recurring.forEach(async (r) => {
-        if (!r.active) return;
-        await scheduleRecurringReminder(
-          r.description,
-          r.amount,
-          r.dayOfMonth,
-          !!r.isSubscription
-        );
-      });
+      const plan = buildNotificationPlan(
+        {
+          loans: loanState.loans,
+          loanPayments: loanState.loanPayments,
+          loanContacts: loanState.loanContacts,
+          recurring: txState.recurring,
+          vehicles: vehState.vehicles,
+          fuelings: vehState.fuelings,
+          oilChanges: vehState.oilChanges,
+          vehicleExpenses: vehState.vehicleExpenses,
+          vehicleReminders: vehState.vehicleReminders,
+          shifts: shiftState.shifts,
+          accounts: accountsState.accounts,
+        },
+        notificationSettings,
+      );
+      await syncNotifications(plan);
     })();
-  }, [ready, loanState.loans, loanState.loanPayments, loanState.loanContacts, txState.recurring]);
+  }, [
+    ready, notificationSettingsReady, notificationSettings, resumeTick,
+    loanState.loans, loanState.loanPayments, loanState.loanContacts, txState.recurring,
+    vehState.vehicles, vehState.fuelings, vehState.oilChanges, vehState.vehicleExpenses, vehState.vehicleReminders,
+    shiftState.shifts, accountsState.accounts,
+  ]);
 
   const resetAll = useCallback(async () => {
     await Promise.all([
@@ -412,6 +420,8 @@ export function AppDataProvider({ children }: { children: React.ReactNode }) {
       ready,
       userName,
       setUserName,
+      notificationSettings,
+      setNotificationSettings,
       // Transações
       transactions: txState.transactions,
       recurring: txState.recurring,
@@ -496,7 +506,7 @@ export function AppDataProvider({ children }: { children: React.ReactNode }) {
       importData,
     }),
     [
-      ready, userName, setUserName,
+      ready, userName, setUserName, notificationSettings, setNotificationSettings,
       txState, vehState, loanState, goalState, shiftState, accountsState,
       addTransaction, balances, correctAccountBalance,
       resetAll, exportData, importData
