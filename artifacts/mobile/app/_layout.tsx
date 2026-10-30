@@ -81,6 +81,7 @@ function RootLayoutNav() {
         }}
       />
       <Stack.Screen name="settings" options={{ title: "Configurações" }} />
+      <Stack.Screen name="analysis" options={{ title: "Para onde vai o dinheiro" }} />
       <Stack.Screen name="notifications" options={{ title: "Notificações" }} />
       <Stack.Screen name="categories" options={{ title: "Categorias" }} />
       <Stack.Screen name="accounts/index" options={{ title: "Contas e carteira" }} />
