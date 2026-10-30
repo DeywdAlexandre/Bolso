@@ -16,6 +16,7 @@ import { useDashboard } from "@/hooks/useDashboard";
 import { useAppData } from "@/contexts/AppDataContext";
 
 import { DashboardHeader } from "@/components/dashboard/DashboardHeader";
+import { AnalysisCard } from "@/components/dashboard/AnalysisCard";
 import { AccountBreakdown } from "@/components/dashboard/AccountBreakdown";
 import { DashboardSummaryCards } from "@/components/dashboard/DashboardSummaryCards";
 import { UpcomingCommitments } from "@/components/dashboard/UpcomingCommitments";
@@ -74,6 +75,8 @@ export default function FinanceScreen() {
         scrollEventThrottle={16}
       >
         <DashboardSummaryCards totals={totals} savedAmount={savedAmount} cashTotal={balances.hasAccounts ? balances.total : undefined} />
+
+        <AnalysisCard />
 
         <AccountBreakdown transactions={filtered} accounts={accounts} />
 
