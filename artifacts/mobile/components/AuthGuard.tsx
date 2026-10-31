@@ -1,10 +1,13 @@
-import React, { useEffect, useState, useCallback } from "react";
+import React, { useEffect, useState, useCallback, useRef } from "react";
 import { View, StyleSheet, Text, Pressable, AppState, Platform } from "react-native";
 import * as LocalAuthentication from "expo-local-authentication";
 import { Feather } from "@expo/vector-icons";
 
 import { useSettings } from "@/contexts/SettingsContext";
 import { useColors } from "@/hooks/useColors";
+
+/** Tempo fora do app a partir do qual a digital é pedida de novo. */
+const RELOCK_AFTER_MS = 30_000;
 
 export function AuthGuard({ children }: { children: React.ReactNode }) {
   const { settings, ready } = useSettings();
@@ -59,14 +62,25 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
     authenticate();
   }, [ready, settings.biometricsEnabled]);
 
-  // Lógica para re-autenticar ao voltar para o app (Background -> Foreground)
+  // Re-autentica só depois de um tempo real em segundo plano. Janelas do sistema (permissão da
+  // agenda, seletor de fotos, a própria digital) fazem o app "sair e voltar" por instantes e
+  // não devem bloquear nem derrubar a tela atual.
+  const leftAt = useRef<number | null>(null);
   useEffect(() => {
     if (!settings.biometricsEnabled) return;
 
     const subscription = AppState.addEventListener("change", (nextAppState) => {
-      if (nextAppState === "active" && isAuthenticated) {
-        setIsAuthenticated(false);
-        authenticate();
+      if (nextAppState === "background") {
+        if (leftAt.current === null) leftAt.current = Date.now();
+        return;
+      }
+      if (nextAppState === "active") {
+        const away = leftAt.current === null ? 0 : Date.now() - leftAt.current;
+        leftAt.current = null;
+        if (away >= RELOCK_AFTER_MS && isAuthenticated) {
+          setIsAuthenticated(false);
+          authenticate();
+        }
       }
     });
 
@@ -75,9 +89,12 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
 
   if (!ready) return null;
 
-  if (settings.biometricsEnabled && !isAuthenticated) {
-    return (
-      <View style={[styles.container, { backgroundColor: colors.background }]}>
+  const locked = settings.biometricsEnabled && !isAuthenticated;
+  return (
+    <View style={{ flex: 1 }}>
+      {children}
+      {locked && (
+      <View style={[styles.container, StyleSheet.absoluteFill, { backgroundColor: colors.background }]}>
         <View style={[styles.iconBox, { backgroundColor: colors.primary + "15" }]}>
           <Feather name="lock" size={48} color={colors.primary} />
         </View>
@@ -99,10 +116,9 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
           </Text>
         </Pressable>
       </View>
-    );
-  }
-
-  return <>{children}</>;
+      )}
+    </View>
+  );
 }
 
 const styles = StyleSheet.create({
