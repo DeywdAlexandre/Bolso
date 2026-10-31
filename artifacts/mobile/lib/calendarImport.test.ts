@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { eventToShift, planCalendarImport } from "./calendarImport";
+import { eventToShift, planCalendarImport, skipReason, type CalendarEvent } from "./calendarImport";
 import type { Shift } from "./types";
 
 const ev = (id: string, title: string, start: string, end: string, allDay = false) => ({
@@ -44,5 +44,22 @@ describe("planCalendarImport", () => {
     expect(plan.duplicates).toBe(2);
     expect(plan.skipped).toBe(1);
     expect(plan.toAdd.map((s) => s.date)).toEqual(["2026-11-01", "2026-11-05"]);
+  });
+});
+
+describe("diagnóstico da importação", () => {
+  it("conta eventos lidos e ignorados por motivo", () => {
+    const events: CalendarEvent[] = [
+      { id: "1", title: "UTI", startDate: "2026-03-10T10:00:00.000Z", endDate: "2026-03-10T22:00:00.000Z" },
+      { id: "2", title: "Plantão", startDate: "2026-03-11T00:00:00.000Z", endDate: "2026-03-12T00:00:00.000Z", allDay: true },
+      { id: "3", title: "  ", startDate: "2026-03-13T10:00:00.000Z", endDate: "2026-03-13T12:00:00.000Z" },
+      { id: "4", title: "Lembrete", startDate: "2026-03-14T10:00:00.000Z", endDate: "2026-03-14T10:00:00.000Z" },
+    ];
+    const plan = planCalendarImport(events, []);
+    expect(plan.read).toBe(4);
+    expect(plan.toAdd).toHaveLength(1);
+    expect(plan.skippedBy).toEqual({ allDay: 1, noTitle: 1, sameTime: 1 });
+    expect(plan.skippedSamples).toEqual(["Plantão", "Lembrete"]);
+    expect(skipReason(events[0]!)).toBeNull();
   });
 });

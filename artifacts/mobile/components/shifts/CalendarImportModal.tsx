@@ -3,7 +3,7 @@ import { ActivityIndicator, Alert, Modal, Pressable, ScrollView, Switch, Text, T
 import { Feather } from "@expo/vector-icons";
 
 import { useColors } from "@/hooks/useColors";
-import { planCalendarImport, type CalendarEvent, type ImportPlan, type ImportedShift } from "@/lib/calendarImport";
+import { planCalendarImport, SKIP_LABELS, type CalendarEvent, type ImportPlan, type ImportedShift, type SkipReason } from "@/lib/calendarImport";
 import { formatCurrency, formatDate, parseDecimalPtBr } from "@/lib/format";
 import type { Shift, ShiftTemplate } from "@/lib/types";
 
@@ -11,6 +11,21 @@ import { styles } from "./styles";
 
 /** Quantos dias à frente da data de hoje a importação lê. */
 const WINDOW_DAYS = 90;
+
+type WindowKey = "month" | "recent";
+
+const WINDOWS: { key: WindowKey; label: string }[] = [
+  { key: "month", label: "Do início do mês" },
+  { key: "recent", label: "Últimos 60 dias" },
+];
+
+/** Início da leitura: primeiro dia do mês atual ou 60 dias atrás. */
+function windowStart(key: WindowKey): Date {
+  const now = new Date();
+  return key === "month"
+    ? new Date(now.getFullYear(), now.getMonth(), 1)
+    : new Date(now.getFullYear(), now.getMonth(), now.getDate() - 60);
+}
 
 type DeviceCalendar = { id: string; title: string; color?: string; source?: { name?: string } };
 
@@ -38,6 +53,7 @@ export function CalendarImportModal({ visible, shifts, templates, onClose, onImp
   const [calendars, setCalendars] = useState<DeviceCalendar[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [plan, setPlan] = useState<ImportPlan | null>(null);
+  const [windowKey, setWindowKey] = useState<WindowKey>("month");
   const [asExtra, setAsExtra] = useState(false);
   const [valueText, setValueText] = useState("");
 
@@ -78,14 +94,15 @@ export function CalendarImportModal({ visible, shifts, templates, onClose, onImp
     }
   }, [visible, loadCalendars]);
 
-  const pick = async (id: string) => {
+  const pick = async (id: string, key: WindowKey = windowKey) => {
     setSelectedId(id);
     setLoading(true);
     try {
       const Calendar = loadCalendar();
-      const start = new Date();
-      start.setHours(0, 0, 0, 0);
-      const end = new Date(start.getTime() + WINDOW_DAYS * 24 * 60 * 60 * 1000);
+      const start = windowStart(key);
+      const end = new Date();
+      end.setHours(0, 0, 0, 0);
+      end.setTime(end.getTime() + WINDOW_DAYS * 24 * 60 * 60 * 1000);
       const events = await Calendar.getEventsAsync([id], start, end);
       setPlan(planCalendarImport(events as CalendarEvent[], shifts));
     } catch {
@@ -130,9 +147,36 @@ export function CalendarImportModal({ visible, shifts, templates, onClose, onImp
           ) : (
             <ScrollView contentContainerStyle={{ gap: 10, paddingBottom: 16 }}>
               <Text style={[styles.emptyText, { color: colors.mutedForeground, textAlign: "left" }]}>
-                Escolha o calendário com as suas escalas. Leio os eventos dos próximos {WINDOW_DAYS} dias; os que já existem
-                aqui (mesmo dia, nome e horário) não são repetidos.
+                Escolha o calendário com as suas escalas. Leio os eventos do período abaixo até {WINDOW_DAYS} dias à frente; os que já
+                existem aqui (mesmo dia, nome e horário) não são repetidos.
               </Text>
+
+              <View style={{ flexDirection: "row", gap: 8 }}>
+                {WINDOWS.map((w) => {
+                  const active = w.key === windowKey;
+                  return (
+                    <Pressable
+                      key={w.key}
+                      onPress={() => {
+                        setWindowKey(w.key);
+                        if (selectedId) void pick(selectedId, w.key);
+                      }}
+                      style={{
+                        paddingHorizontal: 12,
+                        paddingVertical: 6,
+                        borderRadius: 999,
+                        borderWidth: 1,
+                        borderColor: active ? colors.primary : colors.border,
+                        backgroundColor: active ? colors.primary + "22" : colors.card,
+                      }}
+                    >
+                      <Text style={{ fontSize: 12, fontFamily: "Inter_600SemiBold", color: active ? colors.primary : colors.mutedForeground }}>
+                        {w.label}
+                      </Text>
+                    </Pressable>
+                  );
+                })}
+              </View>
 
               {calendars.map((c) => {
                 const active = c.id === selectedId;
@@ -169,6 +213,20 @@ export function CalendarImportModal({ visible, shifts, templates, onClose, onImp
 
               {plan && !loading && (
                 <View style={{ gap: 6 }}>
+                  <Text style={{ color: colors.mutedForeground, fontSize: 12 }}>
+                    {plan.read === 0
+                      ? "Este calendário não tem eventos no período. Confira se o calendário certo está selecionado e sincronizado."
+                      : `A agenda devolveu ${plan.read} ${plan.read === 1 ? "evento" : "eventos"} neste período.`}
+                  </Text>
+                  {plan.skipped > 0 && (
+                    <Text style={{ color: colors.mutedForeground, fontSize: 12 }}>
+                      Ignorados:{" "}
+                      {(Object.entries(plan.skippedBy) as [SkipReason, number][])
+                        .map(([reason, n]) => `${n} ${SKIP_LABELS[reason]}`)
+                        .join(", ")}
+                      {plan.skippedSamples.length > 0 ? ` (ex.: ${plan.skippedSamples.join(", ")})` : ""}
+                    </Text>
+                  )}
                   <Text style={{ color: colors.foreground, fontFamily: "Inter_700Bold", fontSize: 14 }}>
                     {plan.toAdd.length} novo(s) · {plan.duplicates} já existente(s)
                     {plan.skipped ? ` · ${plan.skipped} ignorado(s)` : ""}
