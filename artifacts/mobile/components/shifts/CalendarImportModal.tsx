@@ -52,6 +52,9 @@ export function CalendarImportModal({ visible, shifts, templates, onClose, onImp
   const [denied, setDenied] = useState(false);
   const [calendars, setCalendars] = useState<DeviceCalendar[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  // Eventos de cada calendário no período escolhido: ajuda a achar onde estão as escalas.
+  const [counts, setCounts] = useState<Record<string, number> | null>(null);
+  const [showEmpty, setShowEmpty] = useState(false);
   const [plan, setPlan] = useState<ImportPlan | null>(null);
   const [windowKey, setWindowKey] = useState<WindowKey>("month");
   const [asExtra, setAsExtra] = useState(false);
@@ -93,6 +96,33 @@ export function CalendarImportModal({ visible, shifts, templates, onClose, onImp
       void loadCalendars();
     }
   }, [visible, loadCalendars]);
+
+  useEffect(() => {
+    if (!visible || calendars.length === 0) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const Calendar = loadCalendar();
+        const end = new Date();
+        end.setHours(0, 0, 0, 0);
+        end.setTime(end.getTime() + WINDOW_DAYS * 24 * 60 * 60 * 1000);
+        const events = await Calendar.getEventsAsync(calendars.map((c) => c.id), windowStart(windowKey), end);
+        const next: Record<string, number> = {};
+        for (const c of calendars) next[c.id] = 0;
+        for (const e of events) if (e.calendarId in next) next[e.calendarId] += 1;
+        if (!cancelled) setCounts(next);
+      } catch {
+        if (!cancelled) setCounts(null);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [visible, calendars, windowKey]);
+
+  // Com eventos primeiro (mais cheios no topo); sem eventos ficam recolhidos.
+  const withEvents = counts ? calendars.filter((c) => (counts[c.id] ?? 0) > 0).sort((a, b) => counts[b.id] - counts[a.id]) : calendars;
+  const empty = counts ? calendars.filter((c) => (counts[c.id] ?? 0) === 0) : [];
 
   const pick = async (id: string, key: WindowKey = windowKey) => {
     setSelectedId(id);
@@ -147,7 +177,7 @@ export function CalendarImportModal({ visible, shifts, templates, onClose, onImp
           ) : (
             <ScrollView contentContainerStyle={{ gap: 10, paddingBottom: 16 }}>
               <Text style={[styles.emptyText, { color: colors.mutedForeground, textAlign: "left" }]}>
-                Escolha o calendário com as suas escalas. Leio os eventos do período abaixo até {WINDOW_DAYS} dias à frente; os que já
+                Escolha o calendário com as suas escalas (o do Google costuma ter o seu e-mail; veja qual tem mais eventos). Leio os eventos do período abaixo até {WINDOW_DAYS} dias à frente; os que já
                 existem aqui (mesmo dia, nome e horário) não são repetidos.
               </Text>
 
@@ -178,7 +208,7 @@ export function CalendarImportModal({ visible, shifts, templates, onClose, onImp
                 })}
               </View>
 
-              {calendars.map((c) => {
+              {(showEmpty ? [...withEvents, ...empty] : withEvents).map((c) => {
                 const active = c.id === selectedId;
                 return (
                   <Pressable
@@ -197,13 +227,23 @@ export function CalendarImportModal({ visible, shifts, templates, onClose, onImp
                     <View style={{ width: 10, height: 10, borderRadius: 5, backgroundColor: c.color ?? colors.primary }} />
                     <View style={{ flex: 1 }}>
                       <Text style={{ color: colors.foreground, fontFamily: "Inter_600SemiBold", fontSize: 14 }}>{c.title}</Text>
-                      {c.source?.name ? (
-                        <Text style={{ color: colors.mutedForeground, fontSize: 11 }}>{c.source.name}</Text>
-                      ) : null}
+                      <Text style={{ color: colors.mutedForeground, fontSize: 11 }}>
+                        {[c.source?.name, counts ? `${counts[c.id] ?? 0} ${(counts[c.id] ?? 0) === 1 ? "evento" : "eventos"}` : null]
+                          .filter(Boolean)
+                          .join(" · ")}
+                      </Text>
                     </View>
                   </Pressable>
                 );
               })}
+
+              {empty.length > 0 && (
+                <Pressable onPress={() => setShowEmpty((v) => !v)} hitSlop={8}>
+                  <Text style={{ color: colors.primary, fontSize: 12, fontFamily: "Inter_600SemiBold", textAlign: "center" }}>
+                    {showEmpty ? "Esconder agendas sem eventos" : `Mostrar ${empty.length} agendas sem eventos neste período`}
+                  </Text>
+                </Pressable>
+              )}
 
               {!loading && calendars.length === 0 && (
                 <Text style={[styles.emptyText, { color: colors.mutedForeground }]}>Nenhum calendário encontrado.</Text>
