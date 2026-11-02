@@ -14,11 +14,12 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { useAppData } from "@/contexts/AppDataContext";
 import { useColors } from "@/hooks/useColors";
-import { formatCurrency, parseDecimalPtBr, toIsoDay } from "@/lib/format";
+import { formatCurrency, fromIsoDay, parseDecimalPtBr, toIsoDay } from "@/lib/format";
 import { findDuplicateShift, formatHours, monthStats, normalizeTime, parseHours, validateShiftForm } from "@/lib/shifts";
 import type { Shift, ShiftRecurrenceType, ShiftTemplate } from "@/lib/types";
 import { MONTHS, PRESETS_COLORS, WEEKDAYS_SHORT } from "@/components/shifts/constants";
 import { CalendarImportModal } from "@/components/shifts/CalendarImportModal";
+import { ShiftReceiveModal, type ReceiveDetails } from "@/components/shifts/ShiftReceiveModal";
 import { ShiftEditModal } from "@/components/shifts/ShiftEditModal";
 import { ShiftRulesModal } from "@/components/shifts/ShiftRulesModal";
 import { ShiftTemplatesModal } from "@/components/shifts/ShiftTemplatesModal";
@@ -62,6 +63,7 @@ export default function ShiftsScreen() {
   const [isTemplatesModalOpen, setIsTemplatesModalOpen] = useState(false);
   const [isNewTemplateModalOpen, setIsNewTemplateModalOpen] = useState(false);
   const [editingShift, setEditingShift] = useState<Shift | null>(null);
+  const [receivingShift, setReceivingShift] = useState<Shift | null>(null);
 
   // Estados do Formulário de Plantão/Regra
   const [formMode, setFormMode] = useState<"single" | "recurrent">("single");
@@ -222,18 +224,23 @@ export default function ShiftsScreen() {
       }
       await updateShift(shift.id, { isPaid: false, transactionId: undefined });
     } else {
-      // Se não estava pago, cria a transação de receita no extrato principal
-      const value = shift.value || 0;
-      const tx = await addTransaction({
-        type: "income",
-        amount: value,
-        categoryId: "cat_salary", // Classifica como Salário/Remuneração
-        description: `Escala Extra: ${shift.name}`,
-        date: shift.date + "T12:00:00.000Z",
-      });
-      await updateShift(shift.id, { isPaid: true, transactionId: tx.id });
-      Alert.alert("Recebimento Confirmado", "Uma transação de receita foi adicionada ao seu extrato principal.");
+      // Ainda não recebido: pergunta em qual conta e em que dia caiu.
+      setReceivingShift(shift);
     }
+  };
+
+  const handleConfirmReceive = async (shift: Shift, { accountId, paymentMethod, day }: ReceiveDetails) => {
+    const tx = await addTransaction({
+      type: "income",
+      amount: shift.value || 0,
+      categoryId: "cat_salary", // Classifica como Salário/Remuneração
+      description: `Escala Extra: ${shift.name}`,
+      date: fromIsoDay(day).toISOString(),
+      accountId,
+      paymentMethod,
+    });
+    await updateShift(shift.id, { isPaid: true, transactionId: tx.id });
+    setReceivingShift(null);
   };
 
   const handleDeleteShift = (id: string) => {
@@ -699,6 +706,7 @@ export default function ShiftsScreen() {
         />
       )}
 
+      <ShiftReceiveModal shift={receivingShift} onClose={() => setReceivingShift(null)} onConfirm={handleConfirmReceive} />
       <ShiftEditModal shift={editingShift} onClose={() => setEditingShift(null)} onSave={handleEditShift} />
 
       <ShiftRulesModal
