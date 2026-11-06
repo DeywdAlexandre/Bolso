@@ -292,6 +292,7 @@ describe("fatura já paga", () => {
     // parcelas 3 a 6 (a 2 cai na fatura de novembro, já paga)
     expect(plan.toCreate.map((p) => p.tx.installmentIndex)).toEqual([3, 4, 5, 6]);
     expect(plan.skippedPaid).toBe(3); // mercado, 1/6 e 2/6
+    expect(plan.closedParcels).toEqual({ "2026-11": 522 }); // a parcela 2 caiu na fatura de novembro, já fechada
   });
 
   it("a fatura seguinte, também paga, só acrescenta o que é novo", () => {

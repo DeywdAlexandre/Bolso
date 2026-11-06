@@ -24,6 +24,7 @@ export const STORAGE_KEYS = {
   snapshots: "@prisma/snapshots/v1",
   accounts: "@prisma/accounts/v1",
   transfers: "@prisma/transfers/v1",
+  cardImports: "@prisma/card_imports/v1",
   installDismissedAt: "@prisma/install_dismissed_at/v1",
 } as const;
 

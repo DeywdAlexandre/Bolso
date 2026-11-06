@@ -1,4 +1,4 @@
-import type { Account, Transaction, Transfer } from "./types";
+import type { Account, CardImport, Transaction, Transfer } from "./types";
 
 const round2 = (n: number) => Math.round(n * 100) / 100;
 const pad = (n: number) => String(n).padStart(2, "0");
@@ -80,6 +80,11 @@ export type Invoice = InvoiceRef & {
   remaining: number;
   status: InvoiceStatus;
   items: InvoiceItem[];
+  /**
+   * Fatura que veio de uma importação marcada como "já paga": só o total, sem lançamentos, e fora da dívida.
+   * `partial`: só as parcelas de compras conhecidas, não a fatura inteira.
+   */
+  imported?: { partial: boolean; fileName?: string };
 };
 
 export type InstallmentGroupSummary = {
@@ -90,6 +95,8 @@ export type InstallmentGroupSummary = {
   /** Parcelas em faturas que ainda não fecharam (a atual e as futuras). */
   remaining: number;
   remainingAmount: number;
+  /** Número da parcela que cai na próxima fatura em aberto (ex.: 3 em "3 de 6"); as anteriores já foram pagas. */
+  nextIndex: number;
 };
 
 export type CardSummary = {
@@ -119,6 +126,7 @@ export function computeCardSummary(
   transactions: Transaction[],
   transfers: Transfer[],
   asOf: string,
+  imports: CardImport[] = [],
 ): CardSummary {
   const mine = transactions.filter((t) => t.accountId === card.id && dayOf(t.date) >= card.balanceDate);
 
@@ -180,10 +188,12 @@ export function computeCardSummary(
         total: t.installmentTotal ?? 0,
         remaining: 0,
         remainingAmount: 0,
+        nextIndex: Infinity,
       };
     if (notClosed.has(invoiceFor(card, t.date).key)) {
       g.remaining += 1;
       g.remainingAmount = round2(g.remainingAmount + t.amount);
+      g.nextIndex = Math.min(g.nextIndex, t.installmentIndex ?? Infinity);
     }
     groupMap.set(t.installmentGroupId, g);
   }
@@ -192,5 +202,32 @@ export function computeCardSummary(
   const limitUsed = Math.max(0, debt);
   const limitAvailable = card.creditLimit != null ? round2(card.creditLimit - limitUsed) : null;
 
-  return { debt, invoices, current, futureTotal, overdueOrClosed, groups, limitUsed, limitAvailable };
+  // Faturas importadas como "já pagas": entram só para consulta (não somam na dívida nem no pool de pagamentos).
+  const historic = new Map<string, Invoice>();
+  const addHistoric = (key: string, total: number, partial: boolean, fileName?: string, dates?: { closingDate?: string; dueDate?: string }) => {
+    if (byKey.has(key)) return; // já há lançamentos reais nessa fatura
+    const prev = historic.get(key);
+    if (prev && !prev.imported!.partial && partial) return;
+    if (prev && prev.imported!.partial === partial && prev.total >= total) return;
+    const ref = invoiceFor(card, `${key}-01`);
+    historic.set(key, {
+      ...ref,
+      closingDate: dates?.closingDate ?? ref.closingDate,
+      dueDate: dates?.dueDate ?? ref.dueDate,
+      total: round2(total),
+      paid: round2(total),
+      remaining: 0,
+      status: "paid",
+      items: [],
+      imported: { partial, fileName },
+    });
+  };
+  for (const imp of imports) {
+    if (imp.cardId !== card.id) continue;
+    if (imp.alreadyPaid && imp.total !== undefined) addHistoric(imp.invoiceKey, imp.total, false, imp.fileName, imp);
+    for (const [key, sum] of Object.entries(imp.closedParcels ?? {})) addHistoric(key, sum, true, imp.fileName);
+  }
+  const allInvoices = [...invoices, ...historic.values()].sort((a, b) => a.key.localeCompare(b.key));
+
+  return { debt, invoices: allInvoices, current, futureTotal, overdueOrClosed, groups, limitUsed, limitAvailable };
 }

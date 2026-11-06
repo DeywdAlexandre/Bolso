@@ -61,8 +61,30 @@ export type Transaction = {
   installmentIndex?: number;
   installmentTotal?: number;
   recurringId?: string;
+  /** Lançamento criado por uma importação de fatura (permite desfazer a importação). */
+  importId?: string;
   createdAt: string;
   updatedAt?: string; // ISO
+};
+
+/** Uma fatura de cartão importada de PDF/imagem: guarda o que foi lido para mostrar faturas pagas e desfazer. */
+export type CardImport = {
+  id: string;
+  cardId: string;
+  fileName?: string;
+  /** Mês de fechamento da fatura lida (YYYY-MM). */
+  invoiceKey: string;
+  closingDate?: string;
+  dueDate?: string;
+  /** A fatura lida já estava paga: nada dela virou gasto. */
+  alreadyPaid: boolean;
+  /** Total da fatura segundo o PDF. */
+  total?: number;
+  /** Parcelas de faturas já fechadas (assumidas pagas) que não viraram lançamento: mês (YYYY-MM) → soma. */
+  closedParcels: Record<string, number>;
+  /** Quantos lançamentos foram criados. */
+  count: number;
+  createdAt: string;
 };
 
 export type Recurring = {
