@@ -241,3 +241,78 @@ describe("planInvoiceImport", () => {
     expect(plan.toCreate).toHaveLength(1);
   });
 });
+
+describe("fatura de cartão consignado (Bmg)", () => {
+  const bmg: Account = { ...card, name: "Bmg", closingDay: 3, dueDay: 10 };
+  const rows: [string, string, number][] = [
+    ["2026-09-02", "MMM S TECH CR Pc.1/6", 522],
+    ["2026-09-03", "Pgto Fatura BMG CC", -5415.59],
+    ["2026-09-10", "Pag Deb Folha", -260.06],
+    ["2026-09-06", "WELLHUB JAMILLE BARBOS", 82.4],
+  ];
+  const raw = JSON.stringify({
+    dueDate: "2026-10-10", total: 2098.05, debitsTotal: 604.4,
+    items: rows.map(([date, description, amount]) => ({ date, description, amount, installment: null })),
+  });
+
+  it("desconto em folha e pagamento da fatura são ignorados, não viram entrada", () => {
+    const { invoice } = parseInvoiceJson(raw);
+    const plan = planInvoiceImport({ card: bmg, existing: [], invoice, categories });
+    expect(plan.ignored.map((i) => i.item.description)).toEqual(["Pgto Fatura BMG CC", "Pag Deb Folha"]);
+    expect(plan.toCreate.some((p) => p.tx.type === "income")).toBe(false);
+  });
+
+  it("confere os itens contra o total de débitos, não contra o total a pagar", () => {
+    const { invoice } = parseInvoiceJson(raw);
+    const plan = planInvoiceImport({ card: bmg, existing: [], invoice, categories });
+    expect(plan.itemsTotal).toBe(604.4);
+    expect(plan.difference).toBe(0);
+  });
+
+  it('lê parcela no formato "Pc.1/6" e a tira da descrição', () => {
+    const { invoice } = parseInvoiceJson(raw);
+    const it = invoice.items[0]!;
+    expect(it.installment).toEqual({ index: 1, total: 6 });
+    expect(it.description).toBe("MMM S TECH CR");
+    expect(stripInstallmentMarker("LOJA 125 CR Pc.1/3")).toBe("LOJA 125 CR");
+  });
+});
+
+describe("fatura já paga", () => {
+  const bmg: Account = { ...card, name: "Bmg", closingDay: 3, dueDay: 10 };
+  const items = (inst: [number, number] | null): ExtractedInvoice["items"] => [
+    { date: "2026-09-10", description: "MMM S TECH", amount: 522, installment: inst ? { index: inst[0], total: inst[1] } : undefined },
+    { date: "2026-09-19", description: "MERCADINHO", amount: 83.33 },
+  ];
+  const asOf = "2026-11-06"; // fatura de novembro (fecha 03/11) já fechou
+
+  it("não cria gasto nenhum, só as parcelas de faturas que ainda não fecharam", () => {
+    const plan = planInvoiceImport({ card: bmg, existing: [], invoice: { dueDate: "2026-10-10", items: items([1, 6]) }, categories, alreadyPaid: true, asOf });
+    expect(plan.toCreate.every((p) => p.origin === "future_installment")).toBe(true);
+    // parcelas 3 a 6 (a 2 cai na fatura de novembro, já paga)
+    expect(plan.toCreate.map((p) => p.tx.installmentIndex)).toEqual([3, 4, 5, 6]);
+    expect(plan.skippedPaid).toBe(3); // mercado, 1/6 e 2/6
+  });
+
+  it("a fatura seguinte, também paga, só acrescenta o que é novo", () => {
+    const first = planInvoiceImport({ card: bmg, existing: [], invoice: { dueDate: "2026-10-10", items: items([1, 6]) }, categories, alreadyPaid: true, asOf });
+    const existing: Transaction[] = first.toCreate.map((p, i) => ({ ...p.tx, id: `t${i}`, createdAt: "" }));
+    const nov: ExtractedInvoice = {
+      dueDate: "2026-11-10",
+      items: [
+        { date: "2026-09-10", description: "MMM S TECH", amount: 522, installment: { index: 2, total: 6 } },
+        { date: "2026-10-20", description: "LOJA NOVA", amount: 90, installment: { index: 1, total: 3 } },
+      ],
+    };
+    const plan = planInvoiceImport({ card: bmg, existing, invoice: nov, categories, alreadyPaid: true, asOf });
+    // a compra em 6x já está programada; só a compra nova (em 3x) é acrescentada
+    expect(plan.toCreate.every((p) => p.tx.description.startsWith("LOJA NOVA"))).toBe(true);
+    expect(plan.toCreate.length).toBeGreaterThan(0);
+  });
+
+  it("sem marcar como paga, as compras viram gasto como antes", () => {
+    const plan = planInvoiceImport({ card: bmg, existing: [], invoice: { dueDate: "2026-10-10", items: items(null) }, categories });
+    expect(plan.toCreate).toHaveLength(2);
+    expect(plan.skippedPaid).toBe(0);
+  });
+});

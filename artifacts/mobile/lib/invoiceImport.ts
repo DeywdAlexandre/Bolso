@@ -76,6 +76,8 @@ export type ExtractedInvoice = {
   closingDate?: string;
   dueDate?: string;
   total?: number;
+  /** Soma dos lançamentos (compras e débitos) impressa na fatura, antes de pagamentos/créditos. */
+  debitsTotal?: number;
   items: ExtractedItem[];
 };
 
@@ -85,7 +87,7 @@ const installmentSchema = z
 
 /** "Parcela 3/12", "03/12", "3 de 12" no texto da descrição. */
 function installmentFromText(text: string): { index: number; total: number } | undefined {
-  const m = /(?:parc(?:ela)?\.?\s*)?\b(\d{1,2})\s*(?:\/|de)\s*(\d{1,2})\b\s*$/i.exec(text.trim());
+  const m = /(?:parc(?:ela)?\.?\s*|pc\.?\s*)?\b(\d{1,2})\s*(?:\/|de)\s*(\d{1,2})\b\s*$/i.exec(text.trim());
   if (!m) return undefined;
   const index = Number(m[1]);
   const total = Number(m[2]);
@@ -96,7 +98,7 @@ function installmentFromText(text: string): { index: number; total: number } | u
 export function stripInstallmentMarker(text: string): string {
   return text
     .replace(/\(\s*\d{1,2}\s*\/\s*\d{1,2}\s*\)\s*$/, "")
-    .replace(/[\s-]*(?:parc(?:ela)?\.?\s*)?\b\d{1,2}\s*(?:\/|de)\s*\d{1,2}\b\s*$/i, "")
+    .replace(/[\s-]*(?:parc(?:ela)?\.?\s*|pc\.?\s*)?\b\d{1,2}\s*(?:\/|de)\s*\d{1,2}\b\s*$/i, "")
     .trim();
 }
 
@@ -147,12 +149,14 @@ export function parseInvoiceJson(raw: string): { invoice: ExtractedInvoice; drop
   if (items.length === 0) throw new InvoiceParseError("Não encontrei lançamentos válidos na fatura.");
 
   const total = parseMoney(obj.total);
+  const debits = parseMoney(obj.debitsTotal);
   return {
     dropped,
     invoice: {
       closingDate: parseDateString(obj.closingDate) ?? undefined,
       dueDate: parseDateString(obj.dueDate) ?? undefined,
       total: total !== null ? Math.abs(round2(total)) : undefined,
+      debitsTotal: debits !== null && debits !== 0 ? Math.abs(round2(debits)) : undefined,
       items,
     },
   };
@@ -177,7 +181,8 @@ export function similarity(a: string, b: string): number {
   return common / new Set([...ta, ...tb]).size;
 }
 
-const PAYMENT_RE = /pagamento|pgto|pag\.? (?:fatura|recebido)|payment|obrigad|saldo anterior|fatura anterior/i;
+const PAYMENT_RE =
+  /pagamento|pgto|pag\.? (?:fatura|recebido)|pag\.? deb|d[eé]b(?:ito)?\.? (?:em )?(?:folha|conta)|desconto (?:em )?folha|payment|obrigad|saldo anterior|fatura anterior/i;
 
 const dayNumber = (iso: string) => {
   const [y, m, d] = iso.split("T")[0]!.split("-").map(Number);
@@ -197,6 +202,8 @@ export type ImportPlan = {
   toCreate: PlannedTx[];
   duplicates: { item: ExtractedItem; existing: Transaction }[];
   ignored: { item: ExtractedItem; reason: "payment" }[];
+  /** Lançamentos que não foram criados porque a fatura já está paga (compras dela e parcelas de faturas já fechadas). */
+  skippedPaid: number;
   itemsTotal: number;
   statementTotal?: number;
   /** total da fatura − soma dos itens lidos (≠ 0 sugere itens não lidos). */
@@ -211,6 +218,11 @@ function resolveCategoryId(name: string | undefined, categories: Category[], typ
   const other = list.find((c) => norm(c.name) === "outros");
   return (found ?? other ?? list[0])?.id ?? (type === "income" ? "cat_income_other" : "cat_expense_other");
 }
+
+const todayDay = () => {
+  const d = new Date();
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+};
 
 const isoNoon = (day: string) => new Date(`${day}T12:00:00`).toISOString();
 
@@ -251,6 +263,12 @@ export function planInvoiceImport(opts: {
   invoice: ExtractedInvoice;
   categories: Category[];
   newId?: () => string;
+  /**
+   * Fatura já paga: o dinheiro já saiu, então nada dela vira gasto. Só entram as parcelas que ainda
+   * vão cair em faturas que não fecharam (`asOf`, padrão hoje), para o app saber o que falta pagar.
+   */
+  alreadyPaid?: boolean;
+  asOf?: string;
 }): ImportPlan {
   const { card, invoice, categories } = opts;
   const newId = opts.newId ?? (() => "ig_" + genId());
@@ -353,8 +371,19 @@ export function planInvoiceImport(opts: {
     });
   }
 
+  let skippedPaid = 0;
+  if (opts.alreadyPaid) {
+    const asOf = opts.asOf ?? todayDay();
+    const keep = toCreate.filter((p) => p.origin === "future_installment" && invoiceFor(card, p.tx.date.slice(0, 10)).closingDate >= asOf);
+    skippedPaid = toCreate.length - keep.length;
+    toCreate.length = 0;
+    toCreate.push(...keep);
+    if (skippedPaid > 0) warnings.push(`Fatura já paga: ${skippedPaid} lançamento(s) de faturas pagas não serão criados. Só entram as parcelas que ainda vão cair.`);
+  }
+
   itemsTotal = round2(itemsTotal);
-  const statementTotal = invoice.total;
+  // Com o "total de débitos" impresso, a soma dos itens é conferida contra ele (o total a pagar já desconta pagamentos).
+  const statementTotal = invoice.debitsTotal ?? invoice.total;
   const difference = statementTotal !== undefined ? round2(statementTotal - itemsTotal) : undefined;
   if (difference !== undefined && Math.abs(difference) > 0.01) {
     warnings.push(
@@ -363,5 +392,5 @@ export function planInvoiceImport(opts: {
   }
   if (ignored.length > 0) warnings.push(`${ignored.length} linha(s) de pagamento/saldo anterior foram ignoradas.`);
 
-  return { invoiceKey, toCreate, duplicates, ignored, itemsTotal, statementTotal, difference, warnings };
+  return { invoiceKey, toCreate, duplicates, ignored, skippedPaid, itemsTotal, statementTotal, difference, warnings };
 }
