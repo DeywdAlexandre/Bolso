@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 
 import { genId, toIsoDay } from "@/lib/format";
 import { loadJson, saveJson, STORAGE_KEYS } from "@/lib/storage";
-import type { Account, AccountKind, Transfer } from "@/lib/types";
+import type { Account, AccountKind, CardImport, Transfer } from "@/lib/types";
 
 export type NewAccountInput = {
   name: string;
@@ -19,12 +19,15 @@ export function useAccountsState() {
   const [ready, setReady] = useState(false);
   const [accounts, setAccounts] = useState<Account[]>([]);
   const [transfers, setTransfers] = useState<Transfer[]>([]);
+  const [cardImports, setCardImports] = useState<CardImport[]>([]);
 
   useEffect(() => {
     void Promise.all([
       loadJson<Account[]>(STORAGE_KEYS.accounts, []),
       loadJson<Transfer[]>(STORAGE_KEYS.transfers, []),
-    ]).then(([storedAccounts, storedTransfers]) => {
+      loadJson<CardImport[]>(STORAGE_KEYS.cardImports, []),
+    ]).then(([storedAccounts, storedTransfers, storedImports]) => {
+      setCardImports(storedImports);
       setAccounts(storedAccounts);
       setTransfers(storedTransfers);
       setReady(true);
@@ -102,7 +105,29 @@ export function useAccountsState() {
     [persistTransfers],
   );
 
-  const importState = useCallback(async (data: { accounts?: Account[]; transfers?: Transfer[] }) => {
+  const addCardImport = useCallback(async (input: Omit<CardImport, "id" | "createdAt">) => {
+    const record: CardImport = { ...input, id: "imp_" + genId(), createdAt: new Date().toISOString() };
+    setCardImports((prev) => {
+      const next = [record, ...prev];
+      void saveJson(STORAGE_KEYS.cardImports, next);
+      return next;
+    });
+    return record;
+  }, []);
+
+  const removeCardImport = useCallback(async (id: string) => {
+    setCardImports((prev) => {
+      const next = prev.filter((i) => i.id !== id);
+      void saveJson(STORAGE_KEYS.cardImports, next);
+      return next;
+    });
+  }, []);
+
+  const importState = useCallback(async (data: { accounts?: Account[]; transfers?: Transfer[]; cardImports?: CardImport[] }) => {
+    if (data.cardImports) {
+      setCardImports(data.cardImports);
+      await saveJson(STORAGE_KEYS.cardImports, data.cardImports);
+    }
     if (data.accounts) {
       setAccounts(data.accounts);
       await saveJson(STORAGE_KEYS.accounts, data.accounts);
@@ -116,6 +141,8 @@ export function useAccountsState() {
   const clearState = useCallback(async () => {
     setAccounts([]);
     setTransfers([]);
+    setCardImports([]);
+    await saveJson(STORAGE_KEYS.cardImports, []);
     await saveJson(STORAGE_KEYS.accounts, []);
     await saveJson(STORAGE_KEYS.transfers, []);
   }, []);
@@ -124,6 +151,9 @@ export function useAccountsState() {
     ready,
     accounts,
     transfers,
+    cardImports,
+    addCardImport,
+    removeCardImport,
     addAccount,
     updateAccount,
     addTransfer,

@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import { addMonthsToDay, computeCardSummary, invoiceFor, planInstallments } from "./cards";
-import type { Account, Transaction, Transfer } from "./types";
+import type { Account, CardImport, Transaction, Transfer } from "./types";
 
 const card = (extra: Partial<Account> = {}): Account => ({
   id: "card", name: "Nubank Cartão", kind: "card", color: "#8b5cf6", initialBalance: 0, balanceDate: "2026-01-01",
@@ -112,7 +112,7 @@ describe("computeCardSummary", () => {
     const s = computeCardSummary(card(), txs, [], "2026-03-10");
     // fechadas: jan e fev (2 parcelas); faltam 10 (março em diante)
     expect(s.groups).toHaveLength(1);
-    expect(s.groups[0]).toMatchObject({ description: "Notebook", remaining: 10, remainingAmount: 1000, total: 12, installmentAmount: 100 });
+    expect(s.groups[0]).toMatchObject({ description: "Notebook", remaining: 10, remainingAmount: 1000, total: 12, installmentAmount: 100, nextIndex: 3 });
     expect(s.debt).toBe(1200);
     expect(s.futureTotal).toBe(900); // depois da fatura atual (março)
   });
@@ -126,5 +126,39 @@ describe("computeCardSummary", () => {
   it("sem movimento: sem faturas e dívida zero", () => {
     const s = computeCardSummary(card(), [], [], asOf);
     expect(s).toMatchObject({ debt: 0, invoices: [], current: null, futureTotal: 0 });
+  });
+});
+
+describe("faturas importadas como já pagas", () => {
+  const imp = (extra: Partial<CardImport> = {}): CardImport => ({
+    id: "imp1", cardId: "card", invoiceKey: "2026-10", alreadyPaid: true, total: 2098.05, closedParcels: { "2026-11": 1008.59 },
+    count: 4, createdAt: "", ...extra,
+  });
+  const c = card({ closingDay: 3, dueDay: 10 });
+  const future = [
+    buy(522, "2026-11-10", { installmentGroupId: "g", installmentIndex: 3, installmentTotal: 6, description: "TECH (3/6)" }),
+    buy(522, "2026-12-10", { installmentGroupId: "g", installmentIndex: 4, installmentTotal: 6, description: "TECH (4/6)" }),
+  ];
+
+  it("aparecem como pagas, com o total, sem entrar na dívida", () => {
+    const s = computeCardSummary(c, future, [], "2026-11-06", [imp()]);
+    expect(s.invoices.map((i) => i.key)).toEqual(["2026-10", "2026-11", "2026-12", "2027-01"]);
+    const oct = s.invoices.find((i) => i.key === "2026-10")!;
+    const nov = s.invoices.find((i) => i.key === "2026-11")!;
+    expect(oct).toMatchObject({ total: 2098.05, status: "paid", remaining: 0, imported: { partial: false } });
+    expect(nov).toMatchObject({ total: 1008.59, status: "paid", imported: { partial: true } });
+    expect(s.debt).toBe(1044); // só os lançamentos reais
+  });
+
+  it("a fatura inteira importada depois substitui a parcial; lançamentos reais prevalecem", () => {
+    const s = computeCardSummary(c, future, [], "2026-11-06", [imp(), imp({ id: "imp2", invoiceKey: "2026-11", total: 1500, closedParcels: {} })]);
+    expect(s.invoices.find((i) => i.key === "2026-11")).toMatchObject({ total: 1500, imported: { partial: false } });
+    const real = computeCardSummary(c, [buy(80, "2026-10-01")], [], "2026-11-06", [imp()]);
+    expect(real.invoices.find((i) => i.key === "2026-10")!.imported).toBeUndefined();
+  });
+
+  it("importação de outro cartão não aparece", () => {
+    const s = computeCardSummary(c, [], [], "2026-11-06", [imp({ cardId: "outro" })]);
+    expect(s.invoices).toHaveLength(0);
   });
 });

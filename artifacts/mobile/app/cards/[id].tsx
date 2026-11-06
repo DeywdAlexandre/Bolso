@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { Alert, Platform, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { Feather } from "@expo/vector-icons";
 import { router, Stack, useLocalSearchParams } from "expo-router";
 
@@ -19,7 +19,7 @@ const monthLabel = (key: string) => {
 export default function CardScreen() {
   const colors = useColors();
   const { id } = useLocalSearchParams<{ id: string }>();
-  const { categories, accounts } = useAppData();
+  const { categories, accounts, cardImports, undoCardImport } = useAppData();
   const { settings } = useSettings();
   const found = useCards().find((c) => c.card.id === id);
 
@@ -46,6 +46,20 @@ export default function CardScreen() {
   const { card, summary } = found;
   const i = Math.min(Math.max(index ?? defaultIndex, 0), Math.max(invoices.length - 1, 0));
   const invoice = invoices[i];
+
+  const myImports = cardImports.filter((imp) => imp.cardId === card.id);
+  const undoImport = (imp: (typeof myImports)[number]) => {
+    const msg = `Apagar os ${imp.count} lançamento(s) criados por esta importação${imp.alreadyPaid ? " e o registro da fatura paga" : ""}? Os seus outros lançamentos não são tocados.`;
+    const run = () => void undoCardImport(imp.id);
+    if (Platform.OS === "web") {
+      if (window.confirm(msg)) run();
+    } else {
+      Alert.alert("Desfazer importação", msg, [
+        { text: "Cancelar", style: "cancel" },
+        { text: "Desfazer", style: "destructive", onPress: run },
+      ]);
+    }
+  };
 
   const payFrom = (() => {
     const banks = accounts.filter((a) => !a.archived && a.kind !== "card");
@@ -117,7 +131,14 @@ export default function CardScreen() {
               <Text style={[styles.sub, { color: colors.mutedForeground }]}>
                 Fecha em {formatDate(invoice.closingDate)} · vence em {formatDate(invoice.dueDate)}
               </Text>
-              {invoice.paid > 0 && (
+              {invoice.imported && (
+                <Text style={[styles.sub, { color: colors.income, textAlign: "center" }]}>
+                  {invoice.imported.partial
+                    ? "Fatura já paga. O valor é só das parcelas conhecidas; a fatura inteira não foi importada."
+                    : "Fatura já paga, importada do PDF. Nada dela entra nos seus gastos."}
+                </Text>
+              )}
+              {invoice.paid > 0 && !invoice.imported && (
                 <Text style={[styles.sub, { color: colors.income }]}>
                   Pago {formatCurrency(invoice.paid)} · falta {formatCurrency(invoice.remaining)}
                 </Text>
@@ -144,6 +165,12 @@ export default function CardScreen() {
                     category={categories.find((c) => c.id === item.categoryId)}
                     onPress={() => router.push({ pathname: "/transaction/[id]", params: { id: item.id } })}
                   />
+                  {item.installmentIndex && item.installmentTotal ? (
+                    <Text style={[styles.sub, { color: colors.mutedForeground, marginLeft: 64, marginTop: -6, marginBottom: 6 }]}>
+                      Parcela {item.installmentIndex} de {item.installmentTotal}
+                      {item.installmentIndex > 1 ? ` · ${item.installmentIndex - 1} ${item.installmentIndex === 2 ? "já paga" : "já pagas"}` : ""}
+                    </Text>
+                  ) : null}
                   {idx < invoice.items.length - 1 && <View style={[styles.divider, { backgroundColor: colors.border }]} />}
                 </React.Fragment>
               ))}
@@ -176,6 +203,29 @@ export default function CardScreen() {
           <Text style={[styles.addText, { color: colors.foreground }]}>Importar fatura com IA</Text>
         </Pressable>
 
+        {myImports.length > 0 && (
+          <View style={{ gap: 10 }}>
+            <Text style={[styles.section, { color: colors.mutedForeground }]}>Faturas importadas</Text>
+            {myImports.map((imp) => (
+              <View key={imp.id} style={[styles.groupRow, { backgroundColor: colors.card, borderColor: colors.border }]}>
+                <View style={{ flex: 1 }}>
+                  <Text style={[styles.groupName, { color: colors.foreground }]} numberOfLines={1}>
+                    Fatura de {monthLabel(imp.invoiceKey)}
+                  </Text>
+                  <Text style={[styles.sub, { color: colors.mutedForeground }]} numberOfLines={2}>
+                    {imp.alreadyPaid ? "Já paga · " : ""}
+                    {imp.count} {imp.count === 1 ? "lançamento" : "lançamentos"} · {formatDate(imp.createdAt)}
+                  </Text>
+                </View>
+                <Pressable onPress={() => undoImport(imp)} hitSlop={10} accessibilityLabel="Desfazer importação" style={styles.undoBtn}>
+                  <Feather name="trash-2" size={16} color={colors.destructive} />
+                  <Text style={{ color: colors.destructive, fontSize: 12, fontFamily: "Inter_600SemiBold" }}>Desfazer</Text>
+                </Pressable>
+              </View>
+            ))}
+          </View>
+        )}
+
         {summary.groups.length > 0 && (
           <View style={{ gap: 10 }}>
             <Text style={[styles.section, { color: colors.mutedForeground }]}>Parcelas faltantes</Text>
@@ -186,7 +236,9 @@ export default function CardScreen() {
                     {g.description}
                   </Text>
                   <Text style={[styles.sub, { color: colors.mutedForeground }]}>
-                    Faltam {g.remaining} de {g.total} · {formatCurrency(g.installmentAmount)}/mês
+                    Na parcela {g.nextIndex} de {g.total}
+                    {g.nextIndex > 1 ? ` (${g.nextIndex - 1} ${g.nextIndex === 2 ? "já paga" : "já pagas"})` : ""} · faltam {g.remaining} ·{" "}
+                    {formatCurrency(g.installmentAmount)}/mês
                   </Text>
                 </View>
                 <Text style={[styles.groupAmount, { color: colors.foreground }]}>{formatCurrency(g.remainingAmount)}</Text>
@@ -225,5 +277,6 @@ const styles = StyleSheet.create({
   section: { fontSize: 12, fontFamily: "Inter_600SemiBold", textTransform: "uppercase", letterSpacing: 0.4 },
   groupRow: { flexDirection: "row", alignItems: "center", gap: 12, padding: 14, borderRadius: 16, borderWidth: 1 },
   groupName: { fontSize: 14, fontFamily: "Inter_600SemiBold" },
+  undoBtn: { flexDirection: "row", alignItems: "center", gap: 4, paddingVertical: 6, paddingHorizontal: 8 },
   groupAmount: { fontSize: 15, fontFamily: "Inter_700Bold" },
 });

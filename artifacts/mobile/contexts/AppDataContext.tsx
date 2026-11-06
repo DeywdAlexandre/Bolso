@@ -22,6 +22,7 @@ import {
 import type {
   Account,
   Transfer,
+  CardImport,
   Category,
   Fueling,
   OilChange,
@@ -75,6 +76,10 @@ type AppDataContextValue = {
   addTransfer: (input: Omit<Transfer, "id" | "createdAt">) => Promise<Transfer>;
   updateTransfer: (id: string, patch: Partial<Omit<Transfer, "id" | "createdAt">>) => Promise<void>;
   removeTransfer: (id: string) => Promise<void>;
+  cardImports: CardImport[];
+  addCardImport: (input: Omit<CardImport, "id" | "createdAt">) => Promise<CardImport>;
+  /** Desfaz uma importação de fatura: apaga os lançamentos criados por ela e o registro. */
+  undoCardImport: (id: string) => Promise<void>;
   /** Saldos por conta, "Sem conta" e total (sem contas, é o saldo acumulado de sempre). */
   balances: BalanceSummary;
 
@@ -167,6 +172,7 @@ type BackupPayload = {
   shiftTemplates?: ShiftTemplate[];
   accounts?: Account[];
   transfers?: Transfer[];
+  cardImports?: CardImport[];
   userName?: string;
 };
 
@@ -192,6 +198,14 @@ export function AppDataProvider({ children }: { children: React.ReactNode }) {
       );
     },
     [txState.addTransaction, defaultAccountId],
+  );
+
+  const undoCardImport = useCallback(
+    async (id: string) => {
+      for (const t of txState.transactions) if (t.importId === id) await txState.removeTransaction(t.id);
+      await accountsState.removeCardImport(id);
+    },
+    [txState.transactions, txState.removeTransaction, accountsState.removeCardImport],
   );
 
   const vehState = useVehiclesState({
@@ -334,6 +348,7 @@ export function AppDataProvider({ children }: { children: React.ReactNode }) {
         shiftTemplates: shiftState.shiftTemplates,
         accounts: accountsState.accounts,
         transfers: accountsState.transfers,
+        cardImports: accountsState.cardImports,
       }
     };
     return JSON.stringify(payload);
@@ -342,7 +357,7 @@ export function AppDataProvider({ children }: { children: React.ReactNode }) {
     vehState.vehicles, vehState.fuelings, vehState.oilChanges, vehState.vehicleExpenses, vehState.vehicleReminders,
     loanState.loanContacts, loanState.loans, loanState.loanPayments,
     goalState.goals, goalState.goalDeposits, userName,
-    shiftState.shifts, shiftState.shiftRules, shiftState.shiftTemplates, accountsState.accounts, accountsState.transfers
+    shiftState.shifts, shiftState.shiftRules, shiftState.shiftTemplates, accountsState.accounts, accountsState.transfers, accountsState.cardImports
   ]);
 
   // Cópia local automática semanal (as 3 mais recentes ficam em AsyncStorage).
@@ -389,7 +404,7 @@ export function AppDataProvider({ children }: { children: React.ReactNode }) {
           shiftRules: p.shiftRules,
           shiftTemplates: p.shiftTemplates,
         }),
-        accountsState.importState({ accounts: p.accounts, transfers: p.transfers }),
+        accountsState.importState({ accounts: p.accounts, transfers: p.transfers, cardImports: p.cardImports }),
         saveJson(STORAGE_KEYS.userName, p.userName || ""),
       ]);
       setUserNameState(p.userName || "");
@@ -432,6 +447,9 @@ export function AppDataProvider({ children }: { children: React.ReactNode }) {
       addTransfer: accountsState.addTransfer,
       updateTransfer: accountsState.updateTransfer,
       removeTransfer: accountsState.removeTransfer,
+      cardImports: accountsState.cardImports,
+      addCardImport: accountsState.addCardImport,
+      undoCardImport,
       balances,
       addAccount: accountsState.addAccount,
       updateAccount: accountsState.updateAccount,

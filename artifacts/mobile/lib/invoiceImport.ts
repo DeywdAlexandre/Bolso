@@ -202,6 +202,10 @@ export type ImportPlan = {
   toCreate: PlannedTx[];
   duplicates: { item: ExtractedItem; existing: Transaction }[];
   ignored: { item: ExtractedItem; reason: "payment" }[];
+  /** Parcelas que cairiam em faturas já fechadas e não foram criadas: mês (YYYY-MM) → soma. */
+  closedParcels: Record<string, number>;
+  closingDate: string;
+  dueDate: string;
   /** Lançamentos que não foram criados porque a fatura já está paga (compras dela e parcelas de faturas já fechadas). */
   skippedPaid: number;
   itemsTotal: number;
@@ -372,10 +376,16 @@ export function planInvoiceImport(opts: {
   }
 
   let skippedPaid = 0;
+  const closedParcels: Record<string, number> = {};
   if (opts.alreadyPaid) {
     const asOf = opts.asOf ?? todayDay();
     const keep = toCreate.filter((p) => p.origin === "future_installment" && invoiceFor(card, p.tx.date.slice(0, 10)).closingDate >= asOf);
     skippedPaid = toCreate.length - keep.length;
+    for (const p of toCreate) {
+      if (p.origin !== "future_installment" || keep.includes(p)) continue;
+      const key = invoiceFor(card, p.tx.date.slice(0, 10)).key;
+      closedParcels[key] = round2((closedParcels[key] ?? 0) + p.tx.amount);
+    }
     toCreate.length = 0;
     toCreate.push(...keep);
     if (skippedPaid > 0) warnings.push(`Fatura já paga: ${skippedPaid} lançamento(s) de faturas pagas não serão criados. Só entram as parcelas que ainda vão cair.`);
@@ -392,5 +402,5 @@ export function planInvoiceImport(opts: {
   }
   if (ignored.length > 0) warnings.push(`${ignored.length} linha(s) de pagamento/saldo anterior foram ignoradas.`);
 
-  return { invoiceKey, toCreate, duplicates, ignored, skippedPaid, itemsTotal, statementTotal, difference, warnings };
+  return { invoiceKey, toCreate, duplicates, ignored, skippedPaid, closedParcels, closingDate, dueDate: invoice.dueDate ?? invoiceFor(card, closingDate).dueDate, itemsTotal, statementTotal, difference, warnings };
 }

@@ -30,6 +30,7 @@ const backupSchema = z.object({
       shiftTemplates: records,
       accounts: records,
       transfers: records,
+      cardImports: records,
       userName: z.string().optional(),
     })
     .passthrough(),

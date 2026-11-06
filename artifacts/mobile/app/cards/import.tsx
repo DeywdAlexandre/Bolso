@@ -23,7 +23,7 @@ const monthLabel = (key: string) => {
 export default function ImportInvoiceScreen() {
   const colors = useColors();
   const { id } = useLocalSearchParams<{ id: string }>();
-  const { accounts, transactions, categories, addTransaction } = useAppData();
+  const { accounts, transactions, categories, addTransaction, addCardImport } = useAppData();
   const { apiKey, settings } = useSettings();
   const card = accounts.find((a) => a.id === id && a.kind === "card");
 
@@ -98,7 +98,19 @@ export default function ImportInvoiceScreen() {
     });
 
   const confirm = async () => {
-    for (const p of chosen) await addTransaction(p.tx, { useDefaultAccount: false });
+    if (!plan || !invoice) return;
+    const record = await addCardImport({
+      cardId: card.id,
+      fileName: fileName ?? undefined,
+      invoiceKey: plan.invoiceKey,
+      closingDate: plan.closingDate,
+      dueDate: plan.dueDate,
+      alreadyPaid,
+      total: invoice.total ?? plan.itemsTotal,
+      closedParcels: alreadyPaid ? plan.closedParcels : {},
+      count: chosen.length,
+    });
+    for (const p of chosen) await addTransaction({ ...p.tx, importId: record.id }, { useDefaultAccount: false });
     setImported(chosen.length);
     setPhase("done");
   };
@@ -236,11 +248,13 @@ export default function ImportInvoiceScreen() {
 
             <Pressable
               onPress={confirm}
-              disabled={chosen.length === 0}
-              style={({ pressed }) => [styles.primary, { backgroundColor: colors.primary, opacity: chosen.length === 0 ? 0.4 : pressed ? 0.85 : 1 }]}
+              disabled={chosen.length === 0 && !alreadyPaid}
+              style={({ pressed }) => [styles.primary, { backgroundColor: colors.primary, opacity: chosen.length === 0 && !alreadyPaid ? 0.4 : pressed ? 0.85 : 1 }]}
             >
               <Text style={[styles.primaryText, { color: colors.primaryForeground }]}>
-                Importar {chosen.length} {chosen.length === 1 ? "lançamento" : "lançamentos"}
+                {alreadyPaid && chosen.length === 0
+                  ? "Registrar fatura paga"
+                  : `Importar ${chosen.length} ${chosen.length === 1 ? "lançamento" : "lançamentos"}`}
               </Text>
             </Pressable>
             <Pressable onPress={() => setPhase("idle")} style={styles.link}>
@@ -253,7 +267,7 @@ export default function ImportInvoiceScreen() {
           <View style={styles.center}>
             <Feather name="check-circle" size={48} color={colors.primary} />
             <Text style={[styles.reading, { color: colors.foreground }]}>
-              {imported} {imported === 1 ? "lançamento importado" : "lançamentos importados"}
+              {imported === 0 ? "Fatura paga registrada" : `${imported} ${imported === 1 ? "lançamento importado" : "lançamentos importados"}`}
             </Text>
             <Pressable
               onPress={() => (router.canGoBack() ? router.back() : router.replace(`/cards/${card.id}` as any))}
