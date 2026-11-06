@@ -241,3 +241,39 @@ describe("planInvoiceImport", () => {
     expect(plan.toCreate).toHaveLength(1);
   });
 });
+
+describe("fatura de cartão consignado (Bmg)", () => {
+  const bmg: Account = { ...card, name: "Bmg", closingDay: 3, dueDay: 10 };
+  const rows: [string, string, number][] = [
+    ["2026-09-02", "MMM S TECH CR Pc.1/6", 522],
+    ["2026-09-03", "Pgto Fatura BMG CC", -5415.59],
+    ["2026-09-10", "Pag Deb Folha", -260.06],
+    ["2026-09-06", "WELLHUB JAMILLE BARBOS", 82.4],
+  ];
+  const raw = JSON.stringify({
+    dueDate: "2026-10-10", total: 2098.05, debitsTotal: 604.4,
+    items: rows.map(([date, description, amount]) => ({ date, description, amount, installment: null })),
+  });
+
+  it("desconto em folha e pagamento da fatura são ignorados, não viram entrada", () => {
+    const { invoice } = parseInvoiceJson(raw);
+    const plan = planInvoiceImport({ card: bmg, existing: [], invoice, categories });
+    expect(plan.ignored.map((i) => i.item.description)).toEqual(["Pgto Fatura BMG CC", "Pag Deb Folha"]);
+    expect(plan.toCreate.some((p) => p.tx.type === "income")).toBe(false);
+  });
+
+  it("confere os itens contra o total de débitos, não contra o total a pagar", () => {
+    const { invoice } = parseInvoiceJson(raw);
+    const plan = planInvoiceImport({ card: bmg, existing: [], invoice, categories });
+    expect(plan.itemsTotal).toBe(604.4);
+    expect(plan.difference).toBe(0);
+  });
+
+  it('lê parcela no formato "Pc.1/6" e a tira da descrição', () => {
+    const { invoice } = parseInvoiceJson(raw);
+    const it = invoice.items[0]!;
+    expect(it.installment).toEqual({ index: 1, total: 6 });
+    expect(it.description).toBe("MMM S TECH CR");
+    expect(stripInstallmentMarker("LOJA 125 CR Pc.1/3")).toBe("LOJA 125 CR");
+  });
+});

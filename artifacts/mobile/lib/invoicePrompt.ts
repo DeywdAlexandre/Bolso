@@ -9,6 +9,7 @@ export function buildInvoicePrompt(card: Pick<Account, "name" | "closingDay" | "
   "closingDate": "YYYY-MM-DD" ou null,   // data de fechamento da fatura
   "dueDate": "YYYY-MM-DD" ou null,       // data de vencimento
   "total": número ou null,               // valor total a pagar da fatura
+  "debitsTotal": número ou null,         // soma dos lançamentos/compras da fatura ("Total de débitos", "Valor total da fatura" ao fim da lista), antes de pagamentos e créditos
   "items": [
     {
       "date": "YYYY-MM-DD",              // data da compra como impressa na fatura (infira o ano pelo período da fatura)
@@ -23,7 +24,8 @@ export function buildInvoicePrompt(card: Pick<Account, "name" | "closingDay" | "
 Regras:
 - Use ponto como separador decimal e números sem símbolo de moeda (ex.: 1234.56).
 - Inclua TODAS as linhas de compras, parcelas, tarifas, anuidade, juros, multas e IOF como itens positivos.
-- Inclua estornos/créditos como itens negativos. Inclua "pagamento recebido" da fatura anterior como item negativo.
+- Inclua estornos/créditos como itens negativos. Inclua pagamentos (ex.: "Pgto Fatura", "Pag Deb Folha", desconto em folha) como itens negativos.
+- Parcelas aparecem como "Pc.1/6", "Parc 03/12" ou "3/12": o primeiro número é a parcela desta fatura e o segundo o total.
 - NÃO inclua linhas de resumo (subtotal, total da fatura, limite, pagamento mínimo, encargos projetados).
 - Em compra parcelada, "amount" é o valor da parcela desta fatura (não o total da compra).
 - Categorias disponíveis: ${names}.
