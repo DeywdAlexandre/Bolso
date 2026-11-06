@@ -202,6 +202,8 @@ export type ImportPlan = {
   toCreate: PlannedTx[];
   duplicates: { item: ExtractedItem; existing: Transaction }[];
   ignored: { item: ExtractedItem; reason: "payment" }[];
+  /** Lançamentos que não foram criados porque a fatura já está paga (compras dela e parcelas de faturas já fechadas). */
+  skippedPaid: number;
   itemsTotal: number;
   statementTotal?: number;
   /** total da fatura − soma dos itens lidos (≠ 0 sugere itens não lidos). */
@@ -216,6 +218,11 @@ function resolveCategoryId(name: string | undefined, categories: Category[], typ
   const other = list.find((c) => norm(c.name) === "outros");
   return (found ?? other ?? list[0])?.id ?? (type === "income" ? "cat_income_other" : "cat_expense_other");
 }
+
+const todayDay = () => {
+  const d = new Date();
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+};
 
 const isoNoon = (day: string) => new Date(`${day}T12:00:00`).toISOString();
 
@@ -256,6 +263,12 @@ export function planInvoiceImport(opts: {
   invoice: ExtractedInvoice;
   categories: Category[];
   newId?: () => string;
+  /**
+   * Fatura já paga: o dinheiro já saiu, então nada dela vira gasto. Só entram as parcelas que ainda
+   * vão cair em faturas que não fecharam (`asOf`, padrão hoje), para o app saber o que falta pagar.
+   */
+  alreadyPaid?: boolean;
+  asOf?: string;
 }): ImportPlan {
   const { card, invoice, categories } = opts;
   const newId = opts.newId ?? (() => "ig_" + genId());
@@ -358,6 +371,16 @@ export function planInvoiceImport(opts: {
     });
   }
 
+  let skippedPaid = 0;
+  if (opts.alreadyPaid) {
+    const asOf = opts.asOf ?? todayDay();
+    const keep = toCreate.filter((p) => p.origin === "future_installment" && invoiceFor(card, p.tx.date.slice(0, 10)).closingDate >= asOf);
+    skippedPaid = toCreate.length - keep.length;
+    toCreate.length = 0;
+    toCreate.push(...keep);
+    if (skippedPaid > 0) warnings.push(`Fatura já paga: ${skippedPaid} lançamento(s) de faturas pagas não serão criados. Só entram as parcelas que ainda vão cair.`);
+  }
+
   itemsTotal = round2(itemsTotal);
   // Com o "total de débitos" impresso, a soma dos itens é conferida contra ele (o total a pagar já desconta pagamentos).
   const statementTotal = invoice.debitsTotal ?? invoice.total;
@@ -369,5 +392,5 @@ export function planInvoiceImport(opts: {
   }
   if (ignored.length > 0) warnings.push(`${ignored.length} linha(s) de pagamento/saldo anterior foram ignoradas.`);
 
-  return { invoiceKey, toCreate, duplicates, ignored, itemsTotal, statementTotal, difference, warnings };
+  return { invoiceKey, toCreate, duplicates, ignored, skippedPaid, itemsTotal, statementTotal, difference, warnings };
 }

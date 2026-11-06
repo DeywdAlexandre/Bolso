@@ -1,5 +1,5 @@
-import React, { useMemo, useState } from "react";
-import { ActivityIndicator, Platform, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import React, { useEffect, useMemo, useState } from "react";
+import { ActivityIndicator, Platform, Pressable, ScrollView, StyleSheet, Switch, Text, View } from "react-native";
 import { Feather } from "@expo/vector-icons";
 import * as DocumentPicker from "expo-document-picker";
 import { router, Stack, useLocalSearchParams } from "expo-router";
@@ -10,7 +10,7 @@ import { useColors } from "@/hooks/useColors";
 import { guessMime, readFileAsDataUrl } from "@/lib/fileData";
 import { formatCurrency, formatDate, getMonthName } from "@/lib/format";
 import { extractInvoice } from "@/lib/invoiceAi";
-import { InvoiceParseError, planInvoiceImport, type ImportPlan } from "@/lib/invoiceImport";
+import { InvoiceParseError, planInvoiceImport, type ExtractedInvoice } from "@/lib/invoiceImport";
 import { OpenRouterError } from "@/lib/openrouter";
 
 type Phase = "idle" | "reading" | "review" | "done";
@@ -30,10 +30,20 @@ export default function ImportInvoiceScreen() {
   const [phase, setPhase] = useState<Phase>("idle");
   const [fileName, setFileName] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [plan, setPlan] = useState<ImportPlan | null>(null);
+  const [invoice, setInvoice] = useState<ExtractedInvoice | null>(null);
+  // Fatura já paga: o dinheiro já saiu, então só as parcelas futuras entram.
+  const [alreadyPaid, setAlreadyPaid] = useState(false);
   const [dropped, setDropped] = useState(0);
   const [selected, setSelected] = useState<Set<number>>(new Set());
   const [imported, setImported] = useState(0);
+
+  const plan = useMemo(
+    () => (card && invoice ? planInvoiceImport({ card, existing: transactions, invoice, categories, alreadyPaid }) : null),
+    [card, invoice, transactions, categories, alreadyPaid],
+  );
+  useEffect(() => {
+    if (plan) setSelected(new Set(plan.toCreate.map((_, i) => i)));
+  }, [plan]);
 
   const chosen = useMemo(() => (plan ? plan.toCreate.filter((_, i) => selected.has(i)) : []), [plan, selected]);
 
@@ -55,17 +65,17 @@ export default function ImportInvoiceScreen() {
     setPhase("reading");
     try {
       const dataUrl = await readFileAsDataUrl(asset.uri, mime);
-      const { invoice, dropped: bad } = await extractInvoice({
+      const { invoice: read, dropped: bad } = await extractInvoice({
         apiKey: apiKey ?? "",
         model: settings.model,
         card,
         categories,
         file: { dataUrl, mime, filename: asset.name },
       });
-      const next = planInvoiceImport({ card, existing: transactions, invoice, categories });
-      setPlan(next);
+      // Vencimento já passou: provavelmente está paga (dá para trocar na revisão).
+      setAlreadyPaid(!!read.dueDate && read.dueDate < new Date().toISOString().slice(0, 10));
+      setInvoice(read);
       setDropped(bad);
-      setSelected(new Set(next.toCreate.map((_, i) => i)));
       setPhase("review");
     } catch (err) {
       setError(
@@ -155,6 +165,18 @@ export default function ImportInvoiceScreen() {
                 {plan.toCreate.length} para importar · {plan.duplicates.length} já lançados
                 {dropped > 0 ? ` · ${dropped} linha(s) ilegíveis descartadas` : ""}
               </Text>
+            </View>
+
+            <View style={[styles.summary, { backgroundColor: colors.card, borderColor: alreadyPaid ? colors.primary : colors.border, flexDirection: "row", alignItems: "center", gap: 12 }]}>
+              <View style={{ flex: 1, gap: 2 }}>
+                <Text style={[styles.rowTitle, { color: colors.foreground }]}>Essa fatura já foi paga</Text>
+                <Text style={[styles.hint, { color: colors.mutedForeground }]}>
+                  {alreadyPaid
+                    ? "Nada dela vira gasto. Entram só as parcelas que ainda vão cair nas próximas faturas."
+                    : "As compras desta fatura entram como gastos no cartão."}
+                </Text>
+              </View>
+              <Switch value={alreadyPaid} onValueChange={setAlreadyPaid} trackColor={{ true: colors.primary }} />
             </View>
 
             {plan.warnings.map((w) => (
