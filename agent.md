@@ -12,6 +12,7 @@
 *   **Onde fica o código**: Todo o app mobile está contido em [`artifacts/mobile/`](artifacts/mobile/).
 *   **Persistência**: 100% local no cliente via `AsyncStorage` (chaves `@prisma/*/v1`) e `expo-secure-store` para a chave OpenRouter. **Não há backend nem banco na nuvem**.
 *   **Mapa completo**: Consulte [`MAPA.md`](MAPA.md) para ver a árvore completa de telas, rotas e chaves de armazenamento.
+*   **Planos futuros**: Consulte [`ROADMAP.md`](ROADMAP.md) para ver o backlog de novas funcionalidades acordadas (troca de plantões, fluxo de caixa projetado, orçamentos, etc.).
 
 ---
 
