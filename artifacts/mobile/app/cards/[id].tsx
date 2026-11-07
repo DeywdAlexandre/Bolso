@@ -88,8 +88,26 @@ export default function CardScreen() {
       />
       <ScrollView style={{ backgroundColor: colors.background }} contentContainerStyle={styles.container}>
         <View style={[styles.hero, { backgroundColor: card.color }]}>
-          <Text style={styles.heroLabel}>Dívida no cartão</Text>
-          <Text style={styles.heroValue}>{formatCurrency(Math.max(summary.debt, 0))}</Text>
+          <Text style={styles.heroLabel}>
+            {summary.current ? `Fatura atual · ${monthLabel(summary.current.key)}` : "Dívida no cartão"}
+          </Text>
+          <Text style={styles.heroValue}>
+            {formatCurrency(
+              summary.current
+                ? summary.current.remaining > 0
+                  ? summary.current.remaining
+                  : summary.current.total
+                : Math.max(summary.debt, 0)
+            )}
+          </Text>
+          {summary.current && (
+            <Text style={styles.heroSub}>
+              Fecha em {formatDate(summary.current.closingDate)} · vence em {formatDate(summary.current.dueDate)}
+            </Text>
+          )}
+          <Text style={styles.heroSub}>
+            Dívida total (com parcelas futuras): {formatCurrency(Math.max(summary.debt, 0))}
+          </Text>
           {card.creditLimit ? (
             <>
               <View style={styles.limitTrack}>

@@ -68,24 +68,33 @@ export function AccountsWidget({ balances, showValue }: Props) {
             <Text style={[styles.value, { color: balance < 0 ? colors.expense : colors.foreground }]}>{money(balance)}</Text>
           </View>
         ))}
-        {cards.map(({ card, summary }) => (
-          <Pressable key={card.id} onPress={() => router.push(`/cards/${card.id}` as any)} style={styles.row}>
-            <Feather name="credit-card" size={12} color={card.color} />
-            <View style={{ flex: 1 }}>
-              <Text style={[styles.name, { color: colors.foreground }]} numberOfLines={1}>
-                {card.name}
-              </Text>
-              {summary.current ? (
-                <Text style={[styles.sub, { color: colors.mutedForeground }]}>
-                  Fatura {money(summary.current.total)} · vence {formatDate(summary.current.dueDate)}
+        {cards.map(({ card, summary }) => {
+          const currentInv = summary.current;
+          const invoiceAmount = currentInv
+            ? currentInv.remaining > 0
+              ? currentInv.remaining
+              : currentInv.total
+            : Math.max(summary.debt, 0);
+
+          return (
+            <Pressable key={card.id} onPress={() => router.push(`/cards/${card.id}` as any)} style={styles.row}>
+              <Feather name="credit-card" size={12} color={card.color} />
+              <View style={{ flex: 1 }}>
+                <Text style={[styles.name, { color: colors.foreground }]} numberOfLines={1}>
+                  {card.name}
                 </Text>
-              ) : null}
-            </View>
-            <Text style={[styles.value, { color: summary.debt > 0 ? colors.expense : colors.foreground }]}>
-              {money(Math.max(summary.debt, 0))}
-            </Text>
-          </Pressable>
-        ))}
+                <Text style={[styles.sub, { color: colors.mutedForeground }]}>
+                  {currentInv
+                    ? `Fatura vence ${formatDate(currentInv.dueDate)} · Total: ${money(Math.max(summary.debt, 0))}`
+                    : `Total: ${money(Math.max(summary.debt, 0))}`}
+                </Text>
+              </View>
+              <Text style={[styles.value, { color: invoiceAmount > 0 ? colors.expense : colors.foreground }]}>
+                {money(invoiceAmount)}
+              </Text>
+            </Pressable>
+          );
+        })}
         {balances.unassigned !== 0 && (
           <View style={styles.row}>
             <View style={[styles.dot, { backgroundColor: colors.mutedForeground }]} />

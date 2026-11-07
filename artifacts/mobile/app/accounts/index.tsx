@@ -73,32 +73,41 @@ export default function AccountsScreen() {
       {cards.length > 0 && (
         <View style={{ gap: 8 }}>
           <Text style={[styles.sectionTitle, { color: colors.mutedForeground }]}>Cartões de crédito</Text>
-          {cards.map(({ card, summary }) => (
-            <Pressable
-              key={card.id}
-              onPress={() => router.push(`/cards/${card.id}` as any)}
-              style={({ pressed }) => [
-                styles.row,
-                { backgroundColor: colors.card, borderColor: colors.border, opacity: pressed ? 0.8 : 1 },
-              ]}
-            >
-              <View style={[styles.icon, { backgroundColor: card.color + "22" }]}>
-                <Feather name="credit-card" size={18} color={card.color} />
-              </View>
-              <View style={{ flex: 1 }}>
-                <Text style={[styles.name, { color: colors.foreground }]}>{card.name}</Text>
-                <Text style={[styles.sub, { color: colors.mutedForeground }]}>
-                  {summary.current
-                    ? `Fatura atual ${formatCurrency(summary.current.total)} · vence ${formatDate(summary.current.dueDate)}`
-                    : "Sem fatura em aberto"}
+          {cards.map(({ card, summary }) => {
+            const currentInv = summary.current;
+            const invoiceAmount = currentInv
+              ? currentInv.remaining > 0
+                ? currentInv.remaining
+                : currentInv.total
+              : Math.max(summary.debt, 0);
+
+            return (
+              <Pressable
+                key={card.id}
+                onPress={() => router.push(`/cards/${card.id}` as any)}
+                style={({ pressed }) => [
+                  styles.row,
+                  { backgroundColor: colors.card, borderColor: colors.border, opacity: pressed ? 0.8 : 1 },
+                ]}
+              >
+                <View style={[styles.icon, { backgroundColor: card.color + "22" }]}>
+                  <Feather name="credit-card" size={18} color={card.color} />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={[styles.name, { color: colors.foreground }]}>{card.name}</Text>
+                  <Text style={[styles.sub, { color: colors.mutedForeground }]}>
+                    {currentInv
+                      ? `Fatura vence ${formatDate(currentInv.dueDate)} · Total: ${formatCurrency(Math.max(summary.debt, 0))}`
+                      : `Total: ${formatCurrency(Math.max(summary.debt, 0))}`}
+                  </Text>
+                </View>
+                <Text style={[styles.balance, { color: invoiceAmount > 0 ? colors.expense : colors.foreground }]}>
+                  {formatCurrency(invoiceAmount)}
                 </Text>
-              </View>
-              <Text style={[styles.balance, { color: summary.debt > 0 ? colors.expense : colors.foreground }]}>
-                {formatCurrency(Math.max(summary.debt, 0))}
-              </Text>
-              <Feather name="chevron-right" size={18} color={colors.mutedForeground} />
-            </Pressable>
-          ))}
+                <Feather name="chevron-right" size={18} color={colors.mutedForeground} />
+              </Pressable>
+            );
+          })}
         </View>
       )}
 
