@@ -1,7 +1,7 @@
 import { findAccount, parsePaymentMethod, validateTransfer, type BalanceSummary } from "../../accounts";
 import { planInstallments } from "../../cards";
 import type { Account, Category, PaymentMethod, Recurring, Transaction, TransactionType, Transfer } from "../../types";
-import { genId, todayIso, toIsoDay } from "../../format";
+import { genId, getRecentTransactions, todayIso, toIsoDay } from "../../format";
 import type {
   AddTransactionArgs,
   ListTransactionsArgs,
@@ -175,17 +175,22 @@ export function buildTransactionHandlers(deps: {
         if (!acc) return { transactions: [], total: 0, error: `Conta "${args.account}" não encontrada.` } as never;
         list = list.filter((t) => t.accountId === acc.id);
       }
-      if (args.month || args.year) {
-        const now = new Date();
-        const month = (args.month ?? now.getMonth() + 1) - 1;
-        const year = args.year ?? now.getFullYear();
-        list = list.filter((t) => {
-          const d = new Date(t.date);
-          return d.getMonth() === month && d.getFullYear() === year;
-        });
-      }
-      list.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
       const limit = args.limit ?? 20;
+      if (args.month || args.year) {
+        const todayStr = toIsoDay(new Date());
+        const [currY, currM] = todayStr.split("-").map(Number);
+        const targetMonth = args.month ?? currM;
+        const targetYear = args.year ?? currY;
+        list = list.filter((t) => {
+          const [y, m] = t.date.slice(0, 10).split("-").map(Number);
+          if (args.month && args.year) return y === targetYear && m === targetMonth;
+          if (args.month) return m === targetMonth;
+          return y === targetYear;
+        });
+        list.sort((a, b) => b.date.localeCompare(a.date) || (b.createdAt || "").localeCompare(a.createdAt || ""));
+      } else {
+        list = getRecentTransactions(list, limit);
+      }
       const sliced = list.slice(0, limit);
       const enriched = sliced.map((t) => ({
         ...t,
@@ -196,19 +201,23 @@ export function buildTransactionHandlers(deps: {
     },
 
     async getSummary(args: SummaryArgs) {
-      const now = new Date();
-      const month = (args.month ?? now.getMonth() + 1) - 1;
-      const year = args.year ?? now.getFullYear();
-      const period = args.month ? `${(month + 1).toString().padStart(2, "0")}/${year}` : `${year}`;
+      const todayStr = toIsoDay(new Date());
+      const [currY, currM] = todayStr.split("-").map(Number);
+      const targetMonth = args.month ?? currM;
+      const targetYear = args.year ?? currY;
+      const period = args.month ? `${String(targetMonth).padStart(2, "0")}/${targetYear}` : `${targetYear}`;
 
       let list = deps.transactions;
       if (args.month) {
         list = list.filter((t) => {
-          const d = new Date(t.date);
-          return d.getMonth() === month && d.getFullYear() === year;
+          const [y, m] = t.date.slice(0, 10).split("-").map(Number);
+          return y === targetYear && m === targetMonth;
         });
-      } else if (args.year || true) {
-        list = list.filter((t) => new Date(t.date).getFullYear() === year);
+      } else {
+        list = list.filter((t) => {
+          const [y] = t.date.slice(0, 10).split("-").map(Number);
+          return y === targetYear;
+        });
       }
 
       const income = list.filter((t) => t.type === "income").reduce((s, t) => s + t.amount, 0);

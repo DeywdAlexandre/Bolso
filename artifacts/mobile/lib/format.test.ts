@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { addDaysIso, formatDate, fromIsoDay, localDayStart, parseAmountInput, toIsoDay } from "./format";
+import { addDaysIso, formatDate, fromIsoDay, getRecentTransactions, isSameMonth, isSameYear, localDayStart, parseAmountInput, toIsoDay } from "./format";
 import { roundMoney, sumMoney } from "./money";
 
 describe("format", () => {
@@ -43,5 +43,53 @@ describe("formatDate", () => {
   it("data com hora continua funcionando", () => {
     expect(formatDate("2026-09-10T15:00:00")).toBe("10/09/2026");
     expect(formatDate("lixo")).toBe("");
+  });
+});
+
+describe("isSameMonth e isSameYear", () => {
+  it("não sofrem com fuso horário negativo (ex: UTC-3)", () => {
+    // 2026-05-01 em UTC é meia-noite; em UTC-3 new Date viraria 30/04
+    expect(isSameMonth("2026-05-01", 4, 2026)).toBe(true);
+    expect(isSameMonth("2026-05-01T00:00:00.000Z", 4, 2026)).toBe(true);
+    expect(isSameMonth("2026-04-30", 4, 2026)).toBe(false);
+    expect(isSameYear("2026-01-01", 2026)).toBe(true);
+  });
+});
+
+describe("getRecentTransactions", () => {
+  const sampleTransactions = [
+    { id: "futura_2", description: "TV (3/3)", date: "2027-01-10T12:00:00.000Z", createdAt: "2026-11-10T14:00:00.000Z" },
+    { id: "futura_1", description: "TV (2/3)", date: "2026-12-10T12:00:00.000Z", createdAt: "2026-11-10T14:00:00.000Z" },
+    { id: "hoje_2", description: "Almoço", date: "2026-11-14T13:00:00.000Z", createdAt: "2026-11-14T13:05:00.000Z" },
+    { id: "hoje_1", description: "Café", date: "2026-11-14T08:00:00.000Z", createdAt: "2026-11-14T08:05:00.000Z" },
+    { id: "passada", description: "TV (1/3)", date: "2026-11-10T12:00:00.000Z", createdAt: "2026-11-10T14:00:00.000Z" },
+    { id: "antiga", description: "Mercado", date: "2026-11-01T10:00:00.000Z", createdAt: "2026-11-01T10:00:00.000Z" },
+  ];
+
+  it("exclui parcelas e lançamentos futuros posteriores a asOf", () => {
+    const recent = getRecentTransactions(sampleTransactions, 10, "2026-11-14");
+    const ids = recent.map((t) => t.id);
+    expect(ids).not.toContain("futura_1");
+    expect(ids).not.toContain("futura_2");
+    expect(ids).toEqual(["hoje_2", "hoje_1", "passada", "antiga"]);
+  });
+
+  it("desempata no mesmo dia pelo createdAt mais recente", () => {
+    const recent = getRecentTransactions(sampleTransactions, 2, "2026-11-14");
+    expect(recent[0]?.id).toBe("hoje_2");
+    expect(recent[1]?.id).toBe("hoje_1");
+  });
+
+  it("respeita o limite informado", () => {
+    const recent = getRecentTransactions(sampleTransactions, 1, "2026-11-14");
+    expect(recent).toHaveLength(1);
+    expect(recent[0]?.id).toBe("hoje_2");
+  });
+
+  it("retorna lista vazia se todas as transações forem futuras", () => {
+    const futureOnly = [
+      { id: "f1", date: "2027-01-01", createdAt: "2026-11-14" },
+    ];
+    expect(getRecentTransactions(futureOnly, 5, "2026-11-14")).toEqual([]);
   });
 });

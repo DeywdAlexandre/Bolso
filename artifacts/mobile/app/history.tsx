@@ -29,15 +29,15 @@ export default function HistoryScreen() {
     return transactions.filter((t) => {
       if (accountFilter === "none" && t.accountId) return false;
       if (accountFilter !== "all" && accountFilter !== "none" && t.accountId !== accountFilter) return false;
-      const d = new Date(t.date);
+      const [year, month] = t.date.slice(0, 10).split("-").map(Number);
       if (period.mode === "month") {
-        return d.getMonth() === period.month && d.getFullYear() === period.year;
+        return (month - 1) === period.month && year === period.year;
       }
       if (period.mode === "year") {
-        return d.getFullYear() === period.year;
+        return year === period.year;
       }
       if (period.mode === "range" && period.startDate && period.endDate) {
-        const tDate = t.date.split("T")[0];
+        const tDate = t.date.slice(0, 10);
         return tDate >= period.startDate && tDate <= period.endDate;
       }
       return true;
@@ -47,11 +47,11 @@ export default function HistoryScreen() {
   // Transferências aparecem no extrato (sem entrar em gastos/entradas), no mesmo período e filtro de conta.
   const items = useMemo(() => {
     const inPeriod = (iso: string) => {
-      const d = new Date(iso);
-      if (period.mode === "month") return d.getMonth() === period.month && d.getFullYear() === period.year;
-      if (period.mode === "year") return d.getFullYear() === period.year;
+      const [year, month] = iso.slice(0, 10).split("-").map(Number);
+      if (period.mode === "month") return (month - 1) === period.month && year === period.year;
+      if (period.mode === "year") return year === period.year;
       if (period.mode === "range" && period.startDate && period.endDate) {
-        const day = iso.split("T")[0]!;
+        const day = iso.slice(0, 10);
         return day >= period.startDate && day <= period.endDate;
       }
       return true;
@@ -64,7 +64,13 @@ export default function HistoryScreen() {
     return [
       ...filtered.map((t) => ({ kind: "tx" as const, date: t.date, tx: t })),
       ...visibleTransfers.map((tr) => ({ kind: "transfer" as const, date: tr.date, transfer: tr })),
-    ].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+    ].sort((a, b) => {
+      const cmp = b.date.localeCompare(a.date);
+      if (cmp !== 0) return cmp;
+      const aCreated = a.kind === "tx" ? a.tx.createdAt || "" : a.transfer.createdAt || "";
+      const bCreated = b.kind === "tx" ? b.tx.createdAt || "" : b.transfer.createdAt || "";
+      return bCreated.localeCompare(aCreated);
+    });
   }, [filtered, transfers, period, accountFilter]);
 
   return (

@@ -1,4 +1,4 @@
-import React, { useRef, useState } from "react";
+import React, { useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
   Animated,
@@ -18,7 +18,7 @@ import { GoalsWidget } from "@/components/home/GoalsWidget";
 import { VehiclesWidget } from "@/components/home/VehiclesWidget";
 import { LoansWidget } from "@/components/home/LoansWidget";
 import { ShiftsWidget } from "@/components/home/ShiftsWidget";
-import { toIsoDay } from "@/lib/format";
+import { getRecentTransactions, toIsoDay } from "@/lib/format";
 
 export default function HomeScreen() {
   const colors = useColors();
@@ -84,13 +84,11 @@ export default function HomeScreen() {
     0
   );
 
-  // Transações recentes (mini-extrato)
-  const sortedTransactions = [...transactions].sort((a, b) => {
-    const cmp = b.date.localeCompare(a.date);
-    if (cmp !== 0) return cmp;
-    return b.id.localeCompare(a.id);
-  });
-  const recentTransactions = sortedTransactions.slice(0, 2);
+  // Transações recentes (mini-extrato): apenas gastos e entradas já ocorridos até hoje
+  const recentTransactions = useMemo(
+    () => getRecentTransactions(transactions, 2, todayStr),
+    [transactions, todayStr]
+  );
 
   // Verificar se há algum widget ativo na tela
   const hasAnyWidget =

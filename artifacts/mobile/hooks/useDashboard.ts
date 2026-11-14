@@ -2,6 +2,7 @@ import { useMemo, useRef, useState } from "react";
 import { Animated } from "react-native";
 import { useAppData } from "@/contexts/AppDataContext";
 import type { Period } from "@/components/PeriodSelector";
+import { getRecentTransactions } from "@/lib/format";
 
 export function useDashboard() {
   const {
@@ -74,9 +75,7 @@ export function useDashboard() {
   }, [recurring]);
 
   const recent = useMemo(() => {
-    return [...filtered]
-      .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
-      .slice(0, 6);
+    return getRecentTransactions(filtered, 6);
   }, [filtered]);
 
   return {

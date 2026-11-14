@@ -84,13 +84,33 @@ export function todayIso(): string {
 }
 
 export function isSameMonth(iso: string, month: number, year: number): boolean {
-  const d = new Date(iso);
-  return d.getMonth() === month && d.getFullYear() === year;
+  const [y, m] = iso.slice(0, 10).split("-").map(Number);
+  return m === month + 1 && y === year;
 }
 
 export function isSameYear(iso: string, year: number): boolean {
-  const d = new Date(iso);
-  return d.getFullYear() === year;
+  const [y] = iso.slice(0, 10).split("-").map(Number);
+  return y === year;
+}
+
+/**
+ * Retorna as transações mais recentes já ocorridas até a data informada (padrão: hoje),
+ * ordenadas do dia mais recente para o mais antigo (desempate: createdAt ou id).
+ * Lançamentos com data futura (ex.: parcelas futuras do cartão de crédito) são excluídos.
+ */
+export function getRecentTransactions<T extends { date: string; createdAt?: string; id: string }>(
+  transactions: T[],
+  limit = 10,
+  asOf: string = toIsoDay(new Date())
+): T[] {
+  return transactions
+    .filter((tx) => tx.date.slice(0, 10) <= asOf)
+    .sort((a, b) => {
+      const cmp = b.date.localeCompare(a.date);
+      if (cmp !== 0) return cmp;
+      return (b.createdAt || "").localeCompare(a.createdAt || "") || b.id.localeCompare(a.id);
+    })
+    .slice(0, limit);
 }
 
 export function toIsoDay(d: Date): string {
